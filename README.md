@@ -2,6 +2,8 @@
 
 This repository includes code used to understand the relationship between poverty, child care spending, and parentification across the United States.
 
+All data used in this repository is stored in a [Box Folder](https://uchicago.box.com/s/rz7ws0e14e9d515tdud1qv89mutaqqbq).
+
 **Contents**
 - [Comments for replicators](#comments-for-replicators)
 - [Computational requirements](#computational-requirements)
