@@ -20,7 +20,8 @@ packages <-
     "remotes",
     "janitor",
     "sjlabelled",
-    "CCMHr"
+    "pacman",
+    "dplyr"
   )
 
 pacman::p_load(
