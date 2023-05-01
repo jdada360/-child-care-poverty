@@ -19,7 +19,8 @@ packages <-
     "openxlsx",
     "remotes",
     "janitor",
-    "sjlabelled"
+    "sjlabelled",
+    "CCMHr"
   )
 
 pacman::p_load(

@@ -7,7 +7,7 @@ setwd(file.path(path, "Data"))
 
 # # # Import National Database of Childcare Prices 2008-2018 # # #
 
-ndcp_raw <- CCMHr::loadRDa("Raw data/National Database of Childcare Prices/2008-2018.rda")
+ndcp_raw <-loadRDa("Raw data/National Database of Childcare Prices/2008-2018.rda")
 
 
 # # # Clean National Database of Childcare Prices 2008-2018 # # # 
