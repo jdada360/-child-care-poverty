@@ -21,7 +21,8 @@ packages <-
     "janitor",
     "sjlabelled",
     "pacman",
-    "dplyr"
+    "dplyr",
+    "statar"
   )
 
 pacman::p_load(

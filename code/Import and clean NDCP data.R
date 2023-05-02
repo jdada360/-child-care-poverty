@@ -50,15 +50,17 @@ fig1 <-
   mutate(onerace_ba = onerace_b + onerace_a) %>%
   ungroup() %>% 
   group_by(state_name, county_name) %>% 
-  mutate_at(c("onerace_w":"onerace_other","onerace_ba"),
+  mutate_at(vars(starts_with("onerace_")),
             ~ mean(.x, na.rm = TRUE)) %>% 
-  ungroup() %>% 
   pivot_longer(.,
                cols = c("onerace_w":"onerace_other","onerace_ba"),
                names_to = "onerace_g",
                values_to = "onerace_p") %>% 
+  ungroup() %>% 
   group_by(onerace_g) %>%
-  summarize(mcpreschool = mean(mcpreschool, na.rm = TRUE))
+  mutate(p_quant = xtile(onerace_p, n = 5)) %>% 
+  group_by(onerace_g, p_quant) %>% 
+  summarise(mcpreschool = mean(mcpreschool, na.rm = TRUE))
   
   filter(onerace_group != "onerace_w") %>% 
   ggplot() +
