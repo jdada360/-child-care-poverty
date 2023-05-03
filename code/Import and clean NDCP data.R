@@ -46,35 +46,59 @@ ndcp_clean <-
 
 fig1 <- 
   ndcp_clean %>% 
-  group_by(state_name, county_name, year) %>% 
-  mutate(onerace_ba = onerace_b + onerace_a) %>%
-  ungroup() %>% 
   group_by(state_name, county_name) %>% 
   mutate_at(vars(starts_with("onerace_")),
             ~ mean(.x, na.rm = TRUE)) %>% 
   pivot_longer(.,
-               cols = c("onerace_w":"onerace_other","onerace_ba"),
+               cols = c("onerace_w":"onerace_other"),
                names_to = "onerace_g",
                values_to = "onerace_p") %>% 
   ungroup() %>% 
   group_by(onerace_g) %>%
-  mutate(p_quant = xtile(onerace_p, n = 5)) %>% 
+  mutate(p_quant = xtile(onerace_p, n = 5)) %>%
+  ungroup() %>% 
   group_by(onerace_g, p_quant) %>% 
-  summarise(mcpreschool = mean(mcpreschool, na.rm = TRUE))
-  
-  filter(onerace_group != "onerace_w") %>% 
-  ggplot() +
-  geom_point(aes(y = mcsa,
-                 x = onerace_p,
-                 group = onerace_group,
-                 color = onerace_group)) +
-  geom_line(aes(y = mcsa,
-                x = onerace_p,
-                group = onerace_group,
-                color = onerace_group),
-            linewidth = 0.5) +
-  theme_bw() 
+  summarise_at(vars(starts_with("mc")), mean,
+               na.rm = TRUE) %>% 
+  ungroup() %>% 
+  mutate(p_quant = factor(p_quant,
+                          levels = 1:5),
+         onerace_g = factor(onerace_g,
+                            levels = c("onerace_a",
+                                       "onerace_b",
+                                       "onerace_h",
+                                       "onerace_i",
+                                       "onerace_other",
+                                       "onerace_w"),
+                            labels = c("Asian",
+                                       "Black",
+                                       "Pacific Islander",
+                                       "Native American",
+                                       "Other",
+                                       "White"))) %>% 
+  filter(p_quant == 5)
 
+for (var in colnames(fig1[,3:16])){
+
+  fig <- 
+    ggplot(data = fig1,
+           aes(y = .data[[var]],
+               x = reorder(onerace_g,
+                           + .data[[var]]),
+               color = onerace_g,
+               fill = onerace_g)) +
+      geom_bar(stat = "identity",
+               width = 0.2) +
+      theme_bw() +
+      coord_flip() +
+    labs(title = paste0(var),
+         y =  paste0(var),
+         x = "Counties in the top percentile of percentages of each race")
+  
+  print(fig)
+  
+}
+ 
 
 
 
