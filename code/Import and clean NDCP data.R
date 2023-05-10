@@ -1,11 +1,15 @@
 # Set the working directory 
 
-setwd(file.path(path, "Data"))
+setwd(
+  file.path(
+  BOX,
+  "Child Care and Poverty/Data"
+    )
+  )
 
+#============================== Import Data ==================================== 
 
-#============================== Import Data ===================================# 
-
-# # # Import National Database of Childcare Prices 2008-2018 # # #
+##============ Import National Database of Childcare Prices 2008-2018 ==========
 
 load("Raw data/National Database of Childcare Prices/2008-2018.rda")
 
@@ -41,7 +45,7 @@ ndcp_clean <-
   rename("year" = "studyyear")
 
 
-#============================== Descriptive Analysis ============================# 
+#============================== Descriptive Analysis =========================== 
 
 
 fig1 <- 

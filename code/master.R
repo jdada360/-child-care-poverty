@@ -1,12 +1,11 @@
 #===============================================================================
 # This script sets up the directory and loads the necessary packages to run thee
 # analysis.
-#
 #===============================================================================
 
 # Change to Box folder on your computer
 
-path <- "/Users/joydada/Library/CloudStorage/Box-Box/Child Care and Poverty"
+BOX <- Sys.getenv("BOX") 
 
 # Load necessary packages
 
@@ -22,7 +21,9 @@ packages <-
     "sjlabelled",
     "pacman",
     "dplyr",
-    "statar"
+    "statar",
+    "dataReporter",
+    "here"
   )
 
 pacman::p_load(
