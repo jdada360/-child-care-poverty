@@ -9,6 +9,8 @@ BOX <- Sys.getenv("BOX")
 
 # Load necessary packages
 
+require("pacman")
+
 packages <-
   c("tidyverse",
     "ggplot2",
@@ -18,12 +20,13 @@ packages <-
     "openxlsx",
     "remotes",
     "janitor",
-    "sjlabelled",
-    "pacman",
+    "expss",
     "dplyr",
     "statar",
     "dataReporter",
-    "here"
+    "here",
+    "ggeasy",
+    "extrafont"
   )
 
 pacman::p_load(
