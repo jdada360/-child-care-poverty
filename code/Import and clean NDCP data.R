@@ -200,7 +200,7 @@ fig2 <-
             "School Age"))
   ) %>% 
   apply_labels(
-    h_under6_bothwork = "Quintiles of Average Number of Households \n with Children Under 6 \n with Two Working Parents",
+    h_under6_bothwork = "Deciles of Average Number of Households \n with Children Under 6 \n with Two Working Parents",
     price = "Average Median Price ($)",
     price_type = "Type of Center-Based \n Child Care") %>% 
   ggplot() +
@@ -213,7 +213,7 @@ fig2 <-
                 y = price,
                 group = price_type,
                 color = price_type)) +
-  easy_labs(title = "US Child Care Prices by Quintiles \n of Number of Households with Children \n Under 6 with Two Working Parents") +
+  easy_labs(title = "US Child Care Prices by Deciles \n of Number of Households with Children \n Under 6 with Two Working Parents") +
   theme_bw() +
   theme(text = element_text(family = "Serif"),
         plot.title = element_text(size = 12, hjust = 0.5),
