@@ -135,6 +135,8 @@ fig1 <-
           fill = NA,
           linetype = 'solid')
   ) +
+  scale_y_continuous(limits = c(85, 165),
+                     breaks = seq(85, 165, 10)) +
   scale_color_manual(values = wes_palette("GrandBudapest2"))
 
 print(fig1)

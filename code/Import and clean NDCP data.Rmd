@@ -1,8 +1,8 @@
 ---
 title: "Import and clean NDCP data"
 author: "Joy Dada"
-date: "`r Sys.Date()`"
-output: html_document
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: rmdformats::robobook
 ---
 
 ```{r setup, include = FALSE, warning = FALSE, message = FALSE}
@@ -45,10 +45,7 @@ pacman::p_load(
   character.only = TRUE
 )
 
-# Load fonts ====
-# Press [y] to load all fonts.
 
-font_import()
 ```
 
 # Introduction
@@ -57,7 +54,7 @@ This script aims to produce descriptive statistics using the National Database o
 
 # Data 
 
-Note that each observation in the NDCP is at the `county`-`year` level. All prices are weekly, full-time median prices charged for a given Center-Based Care based on the results reported in the market rate survey report for the county. Details of each variable are found [here](https://www.dol.gov/sites/dolgov/files/WB/media/NationalDatabaseofChildcarePricesTechnicalGuideFinal.pdf) and are adjusted to 2018 levels.
+Note that each observation in the NDCP is at the `county-year` level. All prices are weekly, full-time median prices charged for a given Center-Based Care based on the results reported in the market rate survey report for the county. Details of each variable are found [here](https://www.dol.gov/sites/dolgov/files/WB/media/NationalDatabaseofChildcarePricesTechnicalGuideFinal.pdf) and are adjusted to 2018 levels.
 
 # Process data
 
@@ -183,7 +180,7 @@ fig1 <-
 ```
 
 
-## Figure 1 - Median child care price over time
+# Median child care price over time (Figure 1)
 
 ```{r}
 fig1 <-
@@ -241,11 +238,11 @@ fig1 <-
   ) +
   easy_labs(title = "US Median Child Care Prices",
             subtitle = "2008-2018",
-            caption = "Data Source: National Database of Childcare Prices 2008-2019. \n .Prices are yearly averages from county-level median price observations.") + 
-  theme(text = element_text(family = "Serif", size = 10),
+            caption = "Data Source: National Database of Childcare Prices 2008-2019. \nPrices are yearly averages from county-level median price observations.") + 
+  theme(text = element_text(family = "serif", size = 10),
         plot.title = element_text(size = 12, hjust = 0.5),
-        plot.subtitle = element_text(size = 11 , hjust = 0.5, face = "italic"),
-        plot.caption = element_text(face = "bold", hjust = 1),
+        plot.subtitle = element_text(size = 9 , hjust = 0.5, face = "italic"),
+        plot.caption = element_text(face = "bold", hjust = 0),
         plot.margin = unit(c(0.75,0.75,0.75,0.75), "cm"),
         panel.grid.major.x =  element_line(color = "black",
                                            linewidth = 0.1,
@@ -264,6 +261,8 @@ fig1 <-
           fill = NA,
           linetype = 'solid')
   ) +
+  scale_y_continuous(limits = c(85, 165),
+                     breaks = seq(85, 165, 10)) +
   scale_color_manual(values = wes_palette("GrandBudapest2"))
 
 print(fig1)
