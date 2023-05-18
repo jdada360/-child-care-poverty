@@ -1,7 +1,7 @@
 # Set up =======================================================================
-# This script aims to explore the National Database of Childcare Prices 
-# 2008-2019.
-#
+# This script aims to produce descriptive statistics using the National Database 
+# of Childcare Prices 2008-2019.
+
 #===============================================================================
 
 setwd(
@@ -15,11 +15,10 @@ setwd(
 
 ## Import National Database of Childcare Prices 2008-2018 ======================
 
-load("Raw data/National Database of Childcare Prices/2008-2018.rda")
+load("raw-deintified/National Database of Childcare Prices/2008-2018.rda")
 
 
 ## Clean National Database of Childcare Prices 2008-2018 =======================
-
 
 # Removing flag variables
 
@@ -29,7 +28,7 @@ ndcp_clean <-
   da38303.0001 %>% 
   tibble() %>% 
   clean_names() %>% 
-  remove_all_labels() %>% 
+  zap_labels() %>% 
   dplyr::select(
     state_name,
     state_abbreviation,
@@ -52,13 +51,11 @@ ndcp_clean <-
 
 #============================== Descriptive Analysis =========================== 
 
-
 ## Load fonts
 
 font_import()
-loadfonts(device = "win")
 
-## Yearly average of child care prices =========================================
+## Median child care price during study period =================================
 
 fig1 <-
   ndcp_clean %>%
@@ -95,47 +92,53 @@ fig1 <-
     ) %>% 
   apply_labels(
     year = "Study Year",
-    price = "Average Median Price ($)",
+    price = "Median Price ($)",
     price_type = "Type of Center-Based \n Child Care") %>% 
   ggplot() +
   geom_point(aes(x = year,
                  y = price,
                  group = price_type,
-                 color = price_type)) +
+                 color = price_type),
+             size = 2) +
   geom_line(aes(x = year,
                 y = price,
                 group = price_type,
-                color = price_type)) +
+                color = price_type),
+            linewidth = 1) +
   theme_bw() +
   scale_x_continuous(
     breaks = 2008:2018,
     limits = c(2008, 2018)
   ) +
-  easy_labs(title = "US Average Median Child Care Prices",
-            subtitle = "2008-2018") + 
-  theme(text = element_text(family = "Serif"),
+  easy_labs(title = "US Median Child Care Prices",
+            subtitle = "2008-2018",
+            caption = "Data Source: National Database of Childcare Prices 2008-2019. \n .Prices are yearly averages from county-level median price observations.") + 
+  theme(text = element_text(family = "Serif", size = 10),
         plot.title = element_text(size = 12, hjust = 0.5),
-        plot.subtitle = element_text(size = 9 , hjust = 0.5, face = "italic"),
-        plot.caption = element_text(face = "italic", hjust = 1),
+        plot.subtitle = element_text(size = 11 , hjust = 0.5, face = "italic"),
+        plot.caption = element_text(face = "bold", hjust = 1),
         plot.margin = unit(c(0.75,0.75,0.75,0.75), "cm"),
         panel.grid.major.x =  element_line(color = "black",
                                            linewidth = 0.1,
-                                           linetype="dashed"),
+                                           linetype = "dashed"),
         panel.grid.minor.x = element_blank(),
-        panel.grid.major.y = element_line(color="black",
+        panel.grid.major.y = element_line(color = "black",
                                           linewidth = 0.1,
                                           linetype="dashed"),
         panel.grid.minor.y =  element_blank(),
         legend.title = element_text(size = 10, hjust = 0.5),
         legend.key.width = unit(1,"cm"),
-        legend.text = element_text(size = 8),
+        legend.text = element_text(size = 10),
         legend.key.size = unit(0.45, 'cm'),
         legend.background = element_rect(
           colour = 'black',
           fill = NA,
-          linetype = 'solid'))
-  
+          linetype = 'solid')
+  ) +
+  scale_color_manual(values = wes_palette("GrandBudapest2"))
+
 print(fig1)
+
 
 ## Quintiles of H_Under6_BothWork and Child care prices ========================
 

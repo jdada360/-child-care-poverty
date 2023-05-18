@@ -1,5 +1,5 @@
 #===============================================================================
-# This script sets up the directory and loads the necessary packages to run thee
+# This script sets up the directory and loads the necessary packages to run the
 # analysis.
 #===============================================================================
 
@@ -26,7 +26,9 @@ packages <-
     "dataReporter",
     "here",
     "ggeasy",
-    "extrafont"
+    "extrafont",
+    "sjlabelled",
+    "wesanderson"
   )
 
 pacman::p_load(
