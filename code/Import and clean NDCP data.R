@@ -145,13 +145,21 @@ print(fig1)
 ## Quintiles of H_Under6_BothWork and Child care prices ========================
 
 bothwork_df <-
-  ndcp_clean %>% 
-  group_by(state_name) %>% 
-  mutate(across(
-    c(ends_with("bothwork"),
-      starts_with("mc")),
-    ~ mean(.x, na.rm = TRUE))) %>% 
+  ndcp_clean %>%
+  filter(year == 2018) %>% 
+  group_by(county_fips_code) %>% 
+  mutate(across("h_under6_bothwork",
+    ~ xtile(.x, n = 10)
+  )) %>% 
   ungroup() %>% 
+  group_by(h_under6_bothwork) %>% 
+  summarise_at(
+    c("mcsa",
+      "mcinfant",
+      "mctoddler",
+      "mcpreschool"),
+    ~ mean(.x, na.rm = TRUE)
+  )
   dplyr::select(-c("year", starts_with(c("county", "onerace", "i")),
                    "pr_f","mhi","me","mme", "hispanic")) %>% 
   distinct(state_name, h_under6_bothwork,
@@ -181,7 +189,7 @@ fig2 <-
   ungroup() %>% 
   mutate(h_under6_bothwork = 
            factor(h_under6_bothwork,
-                  levels = 1:10))%>% 
+                  levels = 1:10)) %>% 
   pivot_longer(
     cols = c("mcsa",
              "mcinfant",
