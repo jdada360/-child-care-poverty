@@ -1,15 +1,13 @@
 #===============================================================================
-# This script sets up the directory and loads the necessary packages to run the
+# This script sets up the directory and loads the necessary packages to run thee
 # analysis.
 #===============================================================================
 
 # Change to Box folder on your computer
 
-BOX <- Sys.getenv("BOX") 
+BOX <-"/Users/joydada/Library/CloudStorage/Box-Box/Child Care and Poverty"
 
 # Load necessary packages
-
-require("pacman")
 
 packages <-
   c("tidyverse",
@@ -20,18 +18,19 @@ packages <-
     "openxlsx",
     "remotes",
     "janitor",
-    "expss",
+    "sjlabelled",
+    "pacman",
     "dplyr",
     "statar",
     "dataReporter",
-    "here",
-    "ggeasy",
-    "extrafont",
-    "sjlabelled",
-    "wesanderson"
+    "here"
   )
 
 pacman::p_load(
   packages,
   character.only = TRUE
 )
+
+## Load fonts
+
+font_import()

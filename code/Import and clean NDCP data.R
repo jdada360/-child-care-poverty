@@ -5,18 +5,15 @@
 #===============================================================================
 
 setwd(
-  here(
-  BOX,
-  "Child Care and Poverty/Data"
+  BOX
     )
-  )
 
 #============================== Import Data ==================================== 
 
 ## Import National Database of Childcare Prices 2008-2018 ======================
 
-load("raw-deintified/National Database of Childcare Prices/2008-2018.rda")
-
+"/Users/joydada/Library/CloudStorage/Box-Box/Child Care and Poverty/Data/raw-deintified/National Database of Childcare Prices"
+load("Data/raw-deintified/National Database of Childcare Prices/2008-2018.rda")
 
 ## Clean National Database of Childcare Prices 2008-2018 =======================
 
@@ -50,10 +47,6 @@ ndcp_clean <-
 
 
 #============================== Descriptive Analysis =========================== 
-
-## Load fonts
-
-font_import()
 
 ## Median child care price during study period =================================
 
