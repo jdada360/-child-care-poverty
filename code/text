@@ -1,0 +1,30 @@
+
+% Table created by stargazer v.5.2.3 by Marek Hlavac, Social Policy Institute. E-mail: marek.hlavac at gmail.com
+% Date and time: Fri, Oct 13, 2023 - 17:12:26
+\begin{table}[!htbp] \centering 
+  \caption{} 
+  \label{} 
+\begin{tabular}{@{\extracolsep{5pt}}lc} 
+\\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+ & \multicolumn{1}{c}{\textit{Dependent variable:}} \\ 
+\cline{2-2} 
+\\[-1.8ex] & count \\ 
+\hline \\[-1.8ex] 
+ banBan & $-$13,323.550$^{***}$ \\ 
+  & (2,698.561) \\ 
+  & \\ 
+ Constant & 37,846.430$^{***}$ \\ 
+  & (501.110) \\ 
+  & \\ 
+\hline \\[-1.8ex] 
+Observations & 232 \\ 
+R$^{2}$ & 0.096 \\ 
+Adjusted R$^{2}$ & 0.092 \\ 
+Residual Std. Error & 7,499.930 (df = 230) \\ 
+F Statistic & 24.377$^{***}$ (df = 1; 230) \\ 
+\hline 
+\hline \\[-1.8ex] 
+\textit{Note:}  & \multicolumn{1}{r}{$^{*}$p$<$0.1; $^{**}$p$<$0.05; $^{***}$p$<$0.01} \\ 
+\end{tabular} 
+\end{table} 
