@@ -349,7 +349,7 @@ stargazer(
 
 ### Yearly fixed effects
 
-The ban decreases the the number of chilren recieving subsidized child care.
+The ban decreases the the number of children recieving subsidized child care.
 
 ```{r}
 test <-
@@ -370,3 +370,160 @@ stargazer(
   type = "html"
   )
 ```
+
+
+# Import state-level population data
+
+```{r}
+pop <-
+ read.xlsx(
+    here(
+      path_box,
+      "Data",
+      "raw-deintified",
+      "PopulationEstimates.xlsx"
+    ),
+    startRow = 5
+  ) 
+
+
+```
+
+## Export to rds
+
+```{r}
+saveRDS(
+  pop,
+  here(
+      path_box,
+      "Data",
+      "raw-deintified",
+      "PopulationEstimates"
+    )
+)
+
+tab1(pop$State, graph = FALSE)
+```
+
+## Filter to missouri
+
+```{r}
+pop_mo <-
+  pop %>% 
+  filter(
+    State == "MO"
+  )
+```
+
+Control for teen pregnancies
+Surpise
+
+## Select 2020-22
+
+```{r}
+pop_mo <-
+  pop_mo %>% 
+  clean_names() %>% 
+  dplyr::select(
+    starts_with("pop_"),
+    fip_stxt,
+    state
+  ) %>% 
+  mutate(
+    state = 
+      case_when(
+        substr(fip_stxt, 3, 6) == "000" ~ state,
+        TRUE ~ NA_character_
+        )
+  ) %>% 
+  rename_with(
+    ~ gsub(
+      "pop_estimate_",
+      "",
+      .x),
+    everything()
+  ) %>% 
+  filter(
+    !is.na(state)
+  ) 
+```
+
+## Pivot longer
+
+```{r}
+pop_longer <-
+  pop_mo %>% 
+  pivot_longer(
+    cols = c(
+      "2020",
+      "2021",
+      "2022"
+    ),
+    names_to = "year",
+    values_to = "pop"
+  ) %>% 
+  dplyr::select(
+    c(
+      "year",
+      "pop"
+      )
+  ) %>% 
+  mutate(
+    across(
+      everything(),
+      as.numeric
+    )
+  )
+```
+
+
+## Merge population with counts
+
+
+```{r}
+childcare_merge <-
+  childcare %>% 
+  filter(
+    year %in% 2020:2022
+  ) %>% 
+ left_join(
+    pop_longer,
+    by = "year"
+  ) 
+  # arrange(year) %>% 
+  # fill(pop)
+```
+
+
+## Compute share of population
+
+```{r}
+childcare_pop <-
+  childcare_merge  %>% 
+  mutate(
+    pct = count/pop
+  )
+```
+
+
+## Regression
+
+```{r}
+test <-
+  childcare_pop %>%
+  group_by(year) %>% 
+  mutate(
+    date_fe = cur_group_id()
+  ) 
+
+model3 <-
+  felm(
+    pct ~ ban | date_fe,
+    data = test
+  )
+
+stargazer(
+  model3,
+  type = "html"
+  )
+      
