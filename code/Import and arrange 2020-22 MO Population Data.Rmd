@@ -1,0 +1,171 @@
+---
+title: "Import and arrange 2020-22 MO Population Data"
+author: "Joy Dada"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: rmdformats::robobook
+---
+
+# Introduction
+
+This script imports and arranges 2020-22 MO Population Data.
+
+```{r setup, include = FALSE, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Change to Box folder on your computer
+
+path_box <- 
+  file.path(
+    Sys.getenv("BOX"),
+    "Child Care and Poverty"
+  )
+
+# Load necessary packages
+
+require("pacman")
+
+packages <-
+  c("tidyverse",
+    "ggplot2",
+    "readxl",
+    "haven",
+    "tidyr",
+    "openxlsx",
+    "remotes",
+    "janitor",
+    "expss",
+    "dplyr",
+    "statar",
+    "dataReporter",
+    "here",
+    "ggeasy",
+    "extrafont",
+    "sjlabelled",
+    "wesanderson",
+    "kableExtra",
+    "epiDisplay",
+    "lfe",
+    "stargazer"
+  )
+
+pacman::p_load(
+  packages,
+  character.only = TRUE
+)
+```
+
+
+
+# Import state-level population data
+
+```{r}
+pop <-
+ read.xlsx(
+    here(
+      path_box,
+      "Data",
+      "raw-deintified",
+      "PopulationEstimates.xlsx"
+    ),
+    startRow = 5
+  ) 
+```
+
+## Export to rds
+
+```{r}
+saveRDS(
+  pop,
+  here(
+      path_box,
+      "Data",
+      "raw-deintified",
+      "PopulationEstimates"
+    )
+)
+
+tab1(pop$State, graph = FALSE)
+```
+
+## Filter to missouri
+
+```{r}
+pop_mo <-
+  pop %>% 
+  filter(
+    State == "MO"
+  )
+```
+
+
+## Select 2020-22
+
+```{r}
+pop_mo <-
+  pop_mo %>% 
+  clean_names() %>% 
+  dplyr::select(
+    starts_with("pop_"),
+    fip_stxt,
+    state
+  ) %>% 
+  mutate(
+    state = 
+      case_when(
+        substr(fip_stxt, 3, 6) == "000" ~ state,
+        TRUE ~ NA_character_
+        )
+  ) %>% 
+  rename_with(
+    ~ gsub(
+      "pop_estimate_",
+      "",
+      .x),
+    everything()
+  ) %>% 
+  filter(
+    !is.na(state)
+  ) 
+```
+
+## Pivot longer
+
+```{r}
+pop_longer <-
+  pop_mo %>% 
+  pivot_longer(
+    cols = c(
+      "2020",
+      "2021",
+      "2022"
+    ),
+    names_to = "year",
+    values_to = "tot_pop"
+  ) %>% 
+  dplyr::select(
+    c(
+      "year",
+      "tot_pop"
+      )
+  ) %>% 
+  mutate(
+    across(
+      everything(),
+      as.numeric
+    )
+  )
+```
+
+## Export population data
+
+```{r}
+saveRDS(
+  pop_longer,
+  here(
+      path_box,
+      "Data",
+      "constructed",
+      "2020-22 MO population.rds"
+    )
+)
+```

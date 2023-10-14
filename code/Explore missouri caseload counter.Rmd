@@ -1,7 +1,6 @@
 ---
 title: "Missouri Caseload Counter"
 author: "Joy Dada"
-date: "2023-10-13"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: rmdformats::robobook
 ---
@@ -28,6 +27,7 @@ require("pacman")
 packages <-
   c("tidyverse",
     "ggplot2",
+    "bife",
     "readxl",
     "haven",
     "tidyr",
@@ -56,223 +56,74 @@ pacman::p_load(
 ```
 
 
-
 # Import data
 
 ```{r, warning = FALSE}
-raw_caseload <-
-  read.xlsx(
+caseload_clean <-
+  readRDS(
     here(
       path_box,
       "Data",
-      "raw-deintified",
-      "caseload-counter.xlsx"
-    ),
-    startRow = 2
+      "constructed",
+      "MO Caseload Counter 2004-05 to 2023-08"
+    )
   )
 ```
+
 ## Glimpse of data
 
 ```{r}
-head(raw_caseload, 5) %>% 
+head(caseload_clean, 5) %>% 
   kable(
     .,
     format = "html",
-    caption = "Glimpse of Raw Caseload Counter",
+    caption = "MO Caseload Counter 2004-05 to 2023-08",
     align = "c"
   ) %>% 
   kable_classic(full_width = F, html_font = "Cambria")
 ```
 
-
-# Clean data
-
-## Convert row names to dates 
-
-Row names are year-month, we convert them from a 5 digit serial number caused by when we imported the data. We keep the year and the month, and remove the day, which will be 1 by default.
+# Import historical population data
 
 ```{r}
-names <- 
-  substr(
-    convertToDate(
-      raw_caseload[1, -1],
-      origin = "1900-01-01"
-      ),
-    1, 
-    7)
-
-
-caseload <-
-  raw_caseload %>% 
-  setnames(
-    old = 1:length(raw_caseload),
-    new = c(
-      "variable",
-      names
-    )
-  ) %>% 
-  filter(
-    !is.na(variable)
-  )
-```
-
-
-## Remove unneeded entries
-
-Rows 20-29 are notes, so we remove them.
-
-```{r}
-caseload <-
-  caseload %>% 
-  slice(
-    1:19
-  )
-```
-
-## Convert to numeric
-
-All columns other than the first are numeric variables.
-
-```{r}
-caseload <-
-  caseload %>% 
-  mutate(
-    across(
-      - "variable",
-      as.numeric
-    )
-  )
-```
-
-## Pivot to long 
-
-So each entry is at the variable-month-year level for regressions.
-
-```{r}
-caseload_long <-
-  caseload %>% 
-  pivot_longer(
-    cols = 2:233,
-    names_to = "date",
-    values_to = "count"
-  )
-```
-
-## Split date to month and year
-
-```{r}
-caseload_long <-
-  caseload_long %>% 
-  mutate(
-    year = 
-      as.numeric(
-        substr(date, 1, 4)
-        ),
-    month = 
-      as.numeric(
-        substr(date, 6, 7)
+hist_clean <-
+  readRDS(
+    here(
+          path_box,
+          "Data",
+          "constructed",
+          "missouri-population-2004-2022.rds"
         )
   )
-
-tab1(caseload_long$year)
-tab1(caseload_long$month)
 ```
 
-## Convert variable to categorical 
+## Glimpse of data
 
 ```{r}
-caseload_long <-
-  caseload_long %>%
-  rename(
-    variable_raw = variable
+head(hist_clean, 5) %>% 
+  kable(
+    .,
+    format = "html",
+    caption = "Glimpse of clean historical population data",
+    align = "c"
   ) %>% 
-  mutate(
-    variable =
-      trimws(variable_raw),
-    variable =
-      case_when(
-        grepl("MO HealthNet Enrollees", variable_raw) ~ 1,
-        grepl("Disabilities", variable_raw) ~ 2,
-        grepl("Elderly", variable_raw) ~ 3,
-        grepl("Custodial Parents", variable_raw) ~ 4,
-        variable_raw == "Children" ~ 5,
-        grepl("Pregnant Women", variable_raw) ~ 6,
-        grepl("Adult Expansion", variable_raw) ~ 7,
-        grepl("Women's Health Services", variable_raw) ~ 8,
-        grepl("Child Support Cases", variable_raw) ~ 9,
-        grepl("Food Stamp Families", variable_raw) ~ 10,
-        grepl("Food Stamp Individuals", variable_raw) ~ 11,
-        grepl(
-          "Temporary Assistance Families",
-          variable_raw
-          ) ~ 12,
-        grepl(
-          "Temporary Assistance Individuals",
-          variable_raw
-          ) ~ 13,
-        grepl(
-          "Temporary Assistance Children",
-          variable_raw
-          ) ~ 14,
-        grepl("Foster Care Children", variable_raw) ~ 15,
-        grepl(
-          "Children Awaiting Adoption",
-          variable_raw
-          ) ~ 16,
-        grepl("Adoptions Finalized", variable_raw) ~ 17,
-        grepl(
-          "Children Receiving Subsidized Child Care",
-          variable_raw
-          ) ~ 18,
-         grepl("Youth in DYS Custody", variable_raw) ~ 19,
-      ),
-    variable =
-      factor(
-        variable,
-        levels = 1:19,
-        labels =
-          c(
-            "MO HealthNet Enrollees (MHN)",
-            "Persons with Disabilities",
-            "Elderly",
-            "Custodial Parents",
-            "Children",
-            "Pregnant Women",
-            "Adult Expansion",
-            "Women's Health Services (MHN)",
-            "Child Support Cases",
-            "Food Stamp Families",
-            "Food Stamp Individuals",
-            "Temporary Assistance Families",
-            "Temporary Assistance Individuals",
-            "Temporary Assistance Children",
-            "Foster Care Children",
-            "Children Awaiting Adoption",
-            "Adoptions Finalized",
-            "Children Receiving Subsidized Child Care",
-            "Youth in DYS Custody"
-          )
-      )
-  )
-
-caseload_clean <-
-  caseload_long %>% 
-  dplyr::select(-"variable_raw")
+  kable_classic(full_width = F, html_font = "Cambria")
 ```
 
-## Export clean caseload data
+# Import historical child population data
 
 ```{r}
-saveRDS(
-  caseload_clean,
-  here(
-    path_box,
-    "Data",
-    "constructed",
-    "MO Caseload Counter 2004-05 to 2023-08"
+child_clean <-
+  readRDS(
+    here(
+      path_box,
+      "Data",
+      "constructed",
+      "Child population by age group.rds"
+    )
   )
-)
 ```
+
 
 # Children Receiving Subsidized Child Care 
 
@@ -280,7 +131,9 @@ saveRDS(
 childcare <-
   caseload_clean %>% 
   filter(
-    variable == "Children Receiving Subsidized Child Care"
+    variable %in%
+      c("Children Receiving Subsidized Child Care",
+        "Pregnant Women")
   )
 ```
 
@@ -301,7 +154,24 @@ childcare <-
         levels = 0:1,
         labels = c("No ban", "Ban")
       )
-  )
+  ) %>% 
+  pivot_wider(
+    names_from = variable,
+    values_from = count
+  ) %>% 
+  setnames(
+    old = 5:6,
+    new = c("preg", "childcare_sub")
+  ) %>% 
+  apply_labels(
+    preg = "Pregnant Women",
+    childcare_sub = "Children Receiving Subsidized Child Care"
+  ) %>%
+  group_by(year) %>% 
+  mutate(
+    date_fe = cur_group_id()
+  )  %>% 
+  ungroup()
 
 tab1(childcare$ban)
 ```
@@ -315,19 +185,17 @@ childcare %>%
   geom_point(
     aes(
       x = date,
-      y = count
+      y = childcare_sub
     ) 
   ) + 
   theme_bw() +
   geom_vline(
     xintercept = "2022-06"
-  ) +
-  scale_x_continuous(
-    breaks = 1:12
-  ) +
-
+  ) 
+  # scale_x_continuous(
+  #   breaks = 1:12
+  # ) 
 ```
-
 
 
 ## Quick regression
@@ -337,13 +205,13 @@ No fixed effects
 ```{r}
 model1 <-
   lm(
-    count ~ ban,
+    childcare_sub ~ ban  + preg,
     data = childcare
   )
 
 stargazer(
   model1,
-  type = "html"
+  type = "text"
   )
 ```
 
@@ -352,178 +220,158 @@ stargazer(
 The ban decreases the the number of children recieving subsidized child care.
 
 ```{r}
-test <-
-  childcare %>%
-  group_by(year) %>% 
-  mutate(
-    date_fe = cur_group_id()
-  ) 
-
 model2 <-
   felm(
-    count ~ ban | date_fe,
-    data = test
+    childcare_sub ~ ban + preg | date_fe,
+    data = childcare
   )
 
 stargazer(
   model2,
-  type = "html"
-  )
-```
-
-
-# Import state-level population data
-
-```{r}
-pop <-
- read.xlsx(
-    here(
-      path_box,
-      "Data",
-      "raw-deintified",
-      "PopulationEstimates.xlsx"
-    ),
-    startRow = 5
-  ) 
-
-
-```
-
-## Export to rds
-
-```{r}
-saveRDS(
-  pop,
-  here(
-      path_box,
-      "Data",
-      "raw-deintified",
-      "PopulationEstimates"
-    )
-)
-
-tab1(pop$State, graph = FALSE)
-```
-
-## Filter to missouri
-
-```{r}
-pop_mo <-
-  pop %>% 
-  filter(
-    State == "MO"
-  )
-```
-
-Control for teen pregnancies
-Surpise
-
-## Select 2020-22
-
-```{r}
-pop_mo <-
-  pop_mo %>% 
-  clean_names() %>% 
-  dplyr::select(
-    starts_with("pop_"),
-    fip_stxt,
-    state
-  ) %>% 
-  mutate(
-    state = 
-      case_when(
-        substr(fip_stxt, 3, 6) == "000" ~ state,
-        TRUE ~ NA_character_
-        )
-  ) %>% 
-  rename_with(
-    ~ gsub(
-      "pop_estimate_",
-      "",
-      .x),
-    everything()
-  ) %>% 
-  filter(
-    !is.na(state)
-  ) 
-```
-
-## Pivot longer
-
-```{r}
-pop_longer <-
-  pop_mo %>% 
-  pivot_longer(
-    cols = c(
-      "2020",
-      "2021",
-      "2022"
-    ),
-    names_to = "year",
-    values_to = "pop"
-  ) %>% 
-  dplyr::select(
-    c(
-      "year",
-      "pop"
-      )
-  ) %>% 
-  mutate(
-    across(
-      everything(),
-      as.numeric
-    )
+  type = "text"
   )
 ```
 
 
 ## Merge population with counts
 
-
 ```{r}
 childcare_merge <-
   childcare %>% 
-  filter(
-    year %in% 2020:2022
-  ) %>% 
  left_join(
-    pop_longer,
+    hist_clean,
     by = "year"
-  ) 
-  # arrange(year) %>% 
-  # fill(pop)
+  ) %>% 
+  arrange(year) %>% 
+  fill(tot_pop)
 ```
 
-
-## Compute share of population
+## Compute share of population that are pregnant women
 
 ```{r}
 childcare_pop <-
   childcare_merge  %>% 
   mutate(
-    pct = count/pop
+    pct_preg = preg/tot_pop
   )
 ```
 
-
-## Regression
+# Merge population with child care count
 
 ```{r}
-test <-
-  childcare_pop %>%
-  group_by(year) %>% 
+childcare_df <-
+  childcare_pop %>% 
+  left_join(
+    child_clean,
+    by = "year"
+  )  %>% 
+  arrange(year) %>% 
+  fill(
+    child_pop,
+    .direction = "down"
+    ) 
+```
+
+## Create percentage of children recieiving child care subsidies
+
+```{r}
+childcare_df <-
+  childcare_df %>% 
+  mutate(
+    pct_child = childcare_sub/child_pop
+  ) %>% 
+  group_by(
+    year
+  ) %>% 
   mutate(
     date_fe = cur_group_id()
-  ) 
+  ) %>% 
+  ungroup() %>% 
+  mutate(
+    date = as.Date(paste0(date, "-01"))
+  )
+```
 
+## Scatter plot with `pct_child`
+
+Shows a clear downward trend since 2004
+
+```{r}
+childcare_df %>% 
+  ungroup() %>% 
+  ggplot(
+    aes(
+      x = date,
+      y = pct_child
+    )
+  ) +
+  geom_point(
+    size = 0.5
+  ) +
+  theme_bw() +
+  scale_y_continuous(
+    labels = scales::percent
+    ) +
+  scale_x_date(
+    date_breaks = "2 year",
+    date_labels = "%Y"
+  ) +
+  geom_smooth( 
+    method = 'lm'
+    ) +
+  labs(
+    title = "% of Children Recieving \n Subsidized Child Care",
+    y = "",
+    x = "Date",
+    subtitle = "Missouri"
+  ) +
+  theme(
+    plot.title = 
+      element_text(
+        hjust = 0.5,
+        face = "bold",
+        size = 12),
+    plot.subtitle =
+      element_text(
+        hjust = 0.5,
+        face = "italic",
+        size = 11
+      )
+  )
+```
+
+## Scatter with `pct_preg`
+
+```{r}
+childcare_df %>% 
+  ungroup() %>% 
+  ggplot() +
+  geom_point(
+    aes(
+      x = date,
+      y = pct_preg
+    )
+  ) +
+  theme_bw() +
+  scale_y_continuous(
+    labels = scales::percent
+    )
+```
+
+## Regression with time fixed effects
+
+```{r}
 model3 <-
   felm(
-    pct ~ ban | date_fe,
-    data = test
+    pct_child ~ ban + pct_preg | date_fe,
+    data = childcare_df
   )
 
 stargazer(
   model3,
-  type = "html"
-  )
-      
+  type = "text"
+)
+```
+
+Negative effect on the share of children recieving subsidised child care, controlling for the percentage of pregnant women in the population.
+

@@ -1,0 +1,123 @@
+---
+title: "Import and arrange 2004-2022 MO Child Population Data"
+author: "Joy Dada"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: rmdformats::robobook
+---
+
+# Introduction
+
+This script imports and analyzes child population data in MO from 2004-22.
+
+```{r setup, include = FALSE, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Change to Box folder on your computer
+
+path_box <- 
+  file.path(
+    Sys.getenv("BOX"),
+    "Child Care and Poverty"
+  )
+
+# Load necessary packages
+
+require("pacman")
+
+packages <-
+  c("tidyverse",
+    "ggplot2",
+    "readxl",
+    "haven",
+    "tidyr",
+    "openxlsx",
+    "remotes",
+    "janitor",
+    "expss",
+    "dplyr",
+    "statar",
+    "dataReporter",
+    "here",
+    "ggeasy",
+    "extrafont",
+    "sjlabelled",
+    "wesanderson",
+    "kableExtra",
+    "epiDisplay",
+    "lfe",
+    "stargazer"
+  )
+
+pacman::p_load(
+  packages,
+  character.only = TRUE
+)
+```
+
+# Share of child population
+
+```{r}
+child_pop <-
+  read.xlsx(
+    here(
+      path_box,
+      "Data",
+      "raw-deidentified",
+      "Child population by age group.xlsx"
+    )
+  )
+
+saveRDS(
+  child_pop,
+  here(
+      path_box,
+      "Data",
+      "raw-deidentified",
+      "Child population by age group.rds"
+    )
+)
+```
+
+## Clean data
+
+```{r}
+child_clean <-
+  child_pop %>% 
+  clean_names() %>% 
+  filter(
+    location == "Missouri" &
+      age_group == "Total less than 18" &
+      data_format == "Number"
+  ) %>% 
+  dplyr::select(
+    time_frame,
+    data
+  ) %>% 
+  setnames(
+    old = 1:2,
+    new = c("year", "child_pop")
+  ) %>% 
+  mutate(
+    across(
+      1:2,
+      as.numeric
+    )
+  ) %>% 
+  filter(
+    year >= 2004
+  )
+```
+
+## Export clean child pop
+
+```{r}
+saveRDS(
+  child_clean,
+  here(
+      path_box,
+      "Data",
+      "constructed",
+      "Child population by age group.rds"
+    )
+)
+```

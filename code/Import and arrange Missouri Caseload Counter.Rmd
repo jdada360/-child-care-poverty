@@ -1,0 +1,286 @@
+---
+title: "Import and arrange Missouri Caseload Counter"
+author: "Joy Dada"
+date: "`r Sys.Date()`"
+output: html_document
+---
+# Introduction
+
+This script imports and arranges the [Missouri Department of Social Services Caseload Counter](https://dss.mo.gov/mis/clcounter/history.htm).
+
+```{r setup, include = FALSE, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Change to Box folder on your computer
+
+path_box <- 
+  file.path(
+    Sys.getenv("BOX"),
+    "Child Care and Poverty"
+  )
+
+# Load necessary packages
+
+require("pacman")
+
+packages <-
+  c("tidyverse",
+    "ggplot2",
+    "readxl",
+    "haven",
+    "tidyr",
+    "openxlsx",
+    "remotes",
+    "janitor",
+    "expss",
+    "dplyr",
+    "statar",
+    "dataReporter",
+    "here",
+    "ggeasy",
+    "extrafont",
+    "sjlabelled",
+    "wesanderson",
+    "kableExtra",
+    "epiDisplay",
+    "lfe",
+    "stargazer"
+  )
+
+pacman::p_load(
+  packages,
+  character.only = TRUE
+)
+```
+
+
+# Import data
+
+```{r, warning = FALSE}
+raw_caseload <-
+  read.xlsx(
+    here(
+      path_box,
+      "Data",
+      "raw-deidentified",
+      "caseload-counter.xlsx"
+    ),
+    startRow = 2
+  )
+```
+
+## Glimpse of data
+
+```{r}
+head(raw_caseload, 5) %>% 
+  kable(
+    .,
+    format = "html",
+    caption = "Glimpse of Raw Caseload Counter",
+    align = "c"
+  ) %>% 
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+# Import historical population data
+
+```{r}
+hist_clean <-
+  readRDS(
+    here(
+          path_box,
+          "Data",
+          "constructed",
+          "missouri-population-2004-2022.rds"
+        )
+  )
+```
+
+
+# Clean data
+
+## Convert row names to dates 
+
+Row names are year-month, we convert them from a 5 digit serial number caused by when we imported the data. We keep the year and the month, and remove the day, which will be 1 by default.
+
+```{r}
+names <- 
+  substr(
+    convertToDate(
+      raw_caseload[1, -1],
+      origin = "1900-01-01"
+      ),
+    1, 
+    7)
+
+
+caseload <-
+  raw_caseload %>% 
+  setnames(
+    old = 1:length(raw_caseload),
+    new = c(
+      "variable",
+      names
+    )
+  ) %>% 
+  filter(
+    !is.na(variable)
+  )
+```
+
+## Remove unneeded entries
+
+Rows 20-29 are notes, so we remove them.
+
+```{r}
+caseload <-
+  caseload %>% 
+  slice(
+    1:19
+  )
+```
+
+## Convert to numeric
+
+All columns other than the first are numeric variables.
+
+```{r}
+caseload <-
+  caseload %>% 
+  mutate(
+    across(
+      - "variable",
+      as.numeric
+    )
+  )
+```
+
+## Pivot to long 
+
+So each entry is at the variable-month-year level for regressions.
+
+```{r}
+caseload_long <-
+  caseload %>% 
+  pivot_longer(
+    cols = 2:233,
+    names_to = "date",
+    values_to = "count"
+  )
+```
+
+## Split date to month and year
+
+```{r}
+caseload_long <-
+  caseload_long %>% 
+  mutate(
+    year = 
+      as.numeric(
+        substr(date, 1, 4)
+        ),
+    month = 
+      as.numeric(
+        substr(date, 6, 7)
+        )
+  )
+
+tab1(caseload_long$year)
+tab1(caseload_long$month)
+```
+
+## Convert variable to categorical 
+
+```{r}
+caseload_long <-
+  caseload_long %>%
+  rename(
+    variable_raw = variable
+  ) %>% 
+  mutate(
+    variable =
+      trimws(variable_raw),
+    variable =
+      case_when(
+        grepl("MO HealthNet Enrollees", variable_raw) ~ 1,
+        grepl("Disabilities", variable_raw) ~ 2,
+        grepl("Elderly", variable_raw) ~ 3,
+        grepl("Custodial Parents", variable_raw) ~ 4,
+        variable_raw == "Children" ~ 5,
+        grepl("Pregnant Women", variable_raw) ~ 6,
+        grepl("Adult Expansion", variable_raw) ~ 7,
+        grepl("Women's Health Services", variable_raw) ~ 8,
+        grepl("Child Support Cases", variable_raw) ~ 9,
+        grepl("Food Stamp Families", variable_raw) ~ 10,
+        grepl("Food Stamp Individuals", variable_raw) ~ 11,
+        grepl(
+          "Temporary Assistance Families",
+          variable_raw
+          ) ~ 12,
+        grepl(
+          "Temporary Assistance Individuals",
+          variable_raw
+          ) ~ 13,
+        grepl(
+          "Temporary Assistance Children",
+          variable_raw
+          ) ~ 14,
+        grepl("Foster Care Children", variable_raw) ~ 15,
+        grepl(
+          "Children Awaiting Adoption",
+          variable_raw
+          ) ~ 16,
+        grepl("Adoptions Finalized", variable_raw) ~ 17,
+        grepl(
+          "Children Receiving Subsidized Child Care",
+          variable_raw
+          ) ~ 18,
+         grepl("Youth in DYS Custody", variable_raw) ~ 19,
+      ),
+    variable =
+      factor(
+        variable,
+        levels = 1:19,
+        labels =
+          c(
+            "MO HealthNet Enrollees (MHN)",
+            "Persons with Disabilities",
+            "Elderly",
+            "Custodial Parents",
+            "Children",
+            "Pregnant Women",
+            "Adult Expansion",
+            "Women's Health Services (MHN)",
+            "Child Support Cases",
+            "Food Stamp Families",
+            "Food Stamp Individuals",
+            "Temporary Assistance Families",
+            "Temporary Assistance Individuals",
+            "Temporary Assistance Children",
+            "Foster Care Children",
+            "Children Awaiting Adoption",
+            "Adoptions Finalized",
+            "Children Receiving Subsidized Child Care",
+            "Youth in DYS Custody"
+          )
+      )
+  )
+
+caseload_clean <-
+  caseload_long %>% 
+  dplyr::select(-"variable_raw")
+```
+
+## Export clean caseload data
+
+```{r}
+saveRDS(
+  caseload_clean,
+  here(
+    path_box,
+    "Data",
+    "constructed",
+    "MO Caseload Counter 2004-05 to 2023-08"
+  )
+)
+```
