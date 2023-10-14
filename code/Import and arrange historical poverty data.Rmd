@@ -1,0 +1,330 @@
+---
+title: "Import and arrange historical poverty data"
+author: "Joy Dada"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: rmdformats::robobook
+---
+
+# Introduction
+
+This script imports and arrange historical poverty data from the [US Census Bureau](https://www.census.gov/library/publications/2023/demo/p60-280.html#:~:text=The%20SPM%20rate%20in%202022,and%20Table%20B%2D3).
+
+```{r setup, include = FALSE, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Change to Box folder on your computer
+
+path_box <- 
+  file.path(
+    Sys.getenv("BOX"),
+    "Child Care and Poverty"
+  )
+
+# Load necessary packages
+
+require("pacman")
+
+packages <-
+  c("tidyverse",
+    "ggplot2",
+    "readxl",
+    "haven",
+    "tidyr",
+    "openxlsx",
+    "remotes",
+    "janitor",
+    "expss",
+    "dplyr",
+    "statar",
+    "dataReporter",
+    "here",
+    "ggeasy",
+    "extrafont",
+    "sjlabelled",
+    "wesanderson",
+    "kableExtra",
+    "epiDisplay",
+    "lfe",
+    "stargazer"
+  )
+
+pacman::p_load(
+  packages,
+  character.only = TRUE
+)
+```
+
+
+
+# Import poverty data
+
+```{r, warning = FALSE, message = FALSE}
+poverty_list <-
+    lapply(
+    4:21,
+    function(year){
+      
+      if (year %in% c(4, 7,8,9)) {
+        read_excel(
+        here(
+          path_box,
+          "Data",
+          "raw-deidentified",
+          "State and County Poverty Estimates",
+           paste0("est", year, "all.xls")
+        ),
+        skip = 1
+      ) %>% 
+        mutate(
+          year = year
+        )
+        
+      }
+      
+      if (year %in% 5:9) {
+        read_excel(
+        here(
+          path_box,
+          "Data",
+          "raw-deidentified",
+          "State and County Poverty Estimates",
+           paste0("est", year, "all.xls")
+        ),
+        skip = 2
+      ) %>% 
+        mutate(
+          year = year
+        )
+        
+      }
+      
+      else{
+        
+        read_excel(
+        here(
+          path_box,
+          "Data",
+          "raw-deidentified",
+          "State and County Poverty Estimates",
+           paste0("est", year, "all.xls")
+        ),
+        skip = 3
+      ) %>% 
+        mutate(
+          year = year
+        ) %>% 
+          clean_names
+      }
+      
+    }
+    )
+
+poverty_raw <- 
+  reduce(
+    poverty_list,
+    rbind
+    )
+  
+
+saveRDS(
+  poverty_raw,
+  here(
+      path_box,
+      "Data",
+      "raw-deidentified",
+      "State and County Poverty Estimates",
+      "State and County Poverty Estimates 2004-21.rds"
+    )
+)
+```
+
+## Glimpse at data
+
+
+```{r}
+head(poverty_raw, 5) %>% 
+  kable(
+    .,
+    format = "html",
+    caption = "Raw US Census Bureau Poverty Data",
+    align = "c"
+  ) %>% 
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+
+# Clean data
+
+```{r}
+poverty <-
+  poverty_raw %>%
+  clean_names() 
+```
+
+## Select variables and rename
+
+```{r}
+poverty <-
+  poverty %>% 
+  dplyr::select(
+    name,
+    county_fips,
+    year,
+    postal,
+    poverty_percent_all_ages,
+    poverty_percent_under_age_18,
+    poverty_percent_ages_5_17
+  ) %>% 
+  rename_with(
+    ~ gsub("_percent", "", .x),
+    starts_with("poverty_")
+  )
+```
+
+
+## Select state level variables
+
+```{r}
+poverty <-
+  poverty %>% 
+  filter(
+    county_fips == 0
+  )
+```
+
+## Convert to numeric
+
+```{r}
+poverty <-
+  poverty %>% 
+  mutate(
+    across(
+      starts_with("poverty_"),
+      as.numeric
+    )
+  ) 
+```
+
+## Fix year indicator
+
+```{r}
+poverty <-
+  poverty %>%
+  rename(
+    year_ = year
+  ) %>% 
+  mutate(
+    year = 
+      case_when(
+        str_length(
+          as.character(year_)
+          ) == 1 ~ paste0("200", year_),
+        str_length(
+          as.character(year_)
+          ) == 2 ~ paste0("20", year_)
+      )
+  ) %>% 
+  dplyr::select(-"year_")
+```
+
+## Export 
+
+```{r}
+saveRDS(
+  poverty,
+  here(
+    path_box,
+    "Data",
+    "constructed",
+    "SAIPE Poverty Estimates 2004-21"
+  )
+  
+)
+```
+
+
+## Filter to all races, under 18 years, percent
+
+```{r}
+poverty <-
+  poverty_raw %>% 
+  slice(3:72) %>% 
+  clean_names() %>% 
+  mutate(
+    across(
+      starts_with("x"),
+      as.character
+    )
+  )  %>% 
+  dplyr::select(
+    1,
+    x2,
+    x4,
+    x5,
+    x7
+  ) %>% 
+  setnames(
+    old = 1:5,
+    new = c(
+      "year",
+      "tot_count",
+      "tot_pct",
+      "child_count",
+      "child_pct"
+    )
+  ) %>% 
+  slice(
+    5:n()
+  )
+```
+
+
+## Select years of interest
+
+```{r}
+poverty <-
+  poverty %>% 
+  mutate(
+    year = as.numeric(year)
+  ) %>% 
+  filter(
+    year %in% 1959:2022
+  )
+```
+
+## Convert to numeric 
+
+We also convert percentages back to decimals.
+
+```{r}
+poverty_clean <-
+  poverty %>% 
+  mutate(
+    across(
+      starts_with(
+        c("tot_",
+          "child_")
+      ),
+      as.numeric
+    ),
+    across(
+      ends_with("_pct"),
+      ~ .x/100
+    )
+  )
+```
+
+
+## Export
+
+```{r}
+saveRDS(
+  here(
+    path_box,
+    "Data",
+    "constructed",
+    "1959-2022 Poverty "
+  )
+)
+
+```

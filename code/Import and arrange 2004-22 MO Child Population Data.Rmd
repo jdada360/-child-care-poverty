@@ -54,7 +54,7 @@ pacman::p_load(
 )
 ```
 
-# Share of child population
+# Import population data
 
 ```{r}
 child_pop <-
@@ -78,7 +78,14 @@ saveRDS(
 )
 ```
 
-## Clean data
+## Glimpse at data
+
+```{r}
+
+
+```
+
+# Clean data
 
 ```{r}
 child_clean <-
