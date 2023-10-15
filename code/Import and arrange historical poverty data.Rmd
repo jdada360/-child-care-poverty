@@ -348,7 +348,7 @@ poverty <-
     year_ = year
   ) %>% 
   mutate(
-    year = 
+    date = 
       case_when(
         str_length(
           as.character(year_)
@@ -357,17 +357,32 @@ poverty <-
           as.character(year_)
           ) == 2 ~ paste0("20", year_, "-01-01")
       ),
-    year = as.Date(year)
-  ) %>% 
-  dplyr::select(-"year_") 
+    date = as.Date(date),
+    year = as.numeric(substr(date, 1, 4))
+  )  %>% 
+  dplyr::select(-year_) 
 
 tab1(poverty$year)
 ```
+
+## Convert percentages to decimals
+
+```{r}
+poverty_clean <-
+  poverty %>% 
+  mutate(
+    across(
+      starts_with("poverty_"),
+      ~ .x/100
+    )
+  )
+```
+
 ## Export 
 
 ```{r}
 saveRDS(
-  poverty,
+  poverty_clean,
   here(
     path_box,
     "Data",

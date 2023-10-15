@@ -7,7 +7,7 @@ output: rmdformats::robobook
 
 # Introduction
 
-This script imports and analyzes the [Missouri Department of Social Services Caseload Counter](https://dss.mo.gov/mis/clcounter/history.htm).
+This script performs regression analysis on the [Missouri Department of Social Services Caseload Counter](https://dss.mo.gov/mis/clcounter/history.htm).
 
 ```{r setup, include = FALSE, warning = FALSE, message = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -58,6 +58,8 @@ pacman::p_load(
 
 # Import data
 
+## Import caseload counter
+
 ```{r, warning = FALSE}
 caseload_clean <-
   readRDS(
@@ -70,7 +72,7 @@ caseload_clean <-
   )
 ```
 
-## Glimpse of data
+### Glimpse of data
 
 ```{r}
 head(caseload_clean, 5) %>% 
@@ -83,7 +85,7 @@ head(caseload_clean, 5) %>%
   kable_classic(full_width = F, html_font = "Cambria")
 ```
 
-# Import historical population data
+## Import historical population data
 
 ```{r}
 hist_clean <-
@@ -97,7 +99,7 @@ hist_clean <-
   )
 ```
 
-## Glimpse of data
+### Glimpse of data
 
 ```{r}
 head(hist_clean, 5) %>% 
@@ -110,7 +112,7 @@ head(hist_clean, 5) %>%
   kable_classic(full_width = F, html_font = "Cambria")
 ```
 
-# Import historical child population data
+## Import historical child population data
 
 ```{r}
 child_clean <-
@@ -123,6 +125,48 @@ child_clean <-
     )
   )
 ```
+
+
+### Glimpse of data
+
+```{r}
+head(child_clean, 5) %>% 
+  kable(
+    .,
+    format = "html",
+    caption = "Glimpse of Child population by age group data",
+    align = "c"
+  ) %>% 
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+## Import SAIPE data
+
+```{r}
+poverty <-
+  readRDS(
+   here(
+    path_box,
+    "Data",
+    "constructed",
+    "SAIPE Poverty Estimates 2004-2021"
+    )
+  )
+```
+
+### Glimpse of data
+
+```{r}
+head(poverty, 5) %>% 
+  kable(
+    .,
+    format = "html",
+    caption = "Glimpse of SAIPE Poverty Estimates 2004-2021",
+    align = "c"
+  ) %>% 
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
 
 
 # Children Receiving Subsidized Child Care 
@@ -175,63 +219,6 @@ childcare <-
 
 tab1(childcare$ban)
 ```
-
-## Plot trend in 2022 for the number of active cases
-
-```{r}
-childcare %>%
-  filter(year >= 2019) %>% 
-  ggplot() +
-  geom_point(
-    aes(
-      x = date,
-      y = childcare_sub
-    ) 
-  ) + 
-  theme_bw() +
-  geom_vline(
-    xintercept = "2022-06"
-  ) 
-  # scale_x_continuous(
-  #   breaks = 1:12
-  # ) 
-```
-
-
-## Quick regression
-
-No fixed effects
-
-```{r}
-model1 <-
-  lm(
-    childcare_sub ~ ban  + preg,
-    data = childcare
-  )
-
-stargazer(
-  model1,
-  type = "text"
-  )
-```
-
-### Yearly fixed effects
-
-The ban decreases the the number of children recieving subsidized child care.
-
-```{r}
-model2 <-
-  felm(
-    childcare_sub ~ ban + preg | date_fe,
-    data = childcare
-  )
-
-stargazer(
-  model2,
-  type = "text"
-  )
-```
-
 
 ## Merge population with counts
 
@@ -291,6 +278,152 @@ childcare_df <-
     date = as.Date(paste0(date, "-01"))
   )
 ```
+
+## Regression with time fixed effects
+
+```{r}
+model3 <-
+  felm(
+    pct_child ~ ban + pct_preg | date_fe,
+    data = childcare_df
+  )
+
+stargazer(
+  model3,
+  type = "text"
+)
+```
+
+Negative effect on the share of children recieving subsidised child care, controlling for the percentage of pregnant women in the population.
+
+# Add poverty controls
+
+```{r}
+childcare_df <-
+  poverty %>% 
+  filter(
+    postal == "MO"
+  ) %>% 
+  dplyr::select(-"date") %>% 
+  right_join(
+    childcare_df,
+    by = "year"
+  ) %>% 
+  arrange(year) %>% 
+  fill(
+    poverty_under_age_18,
+    poverty_all_ages,
+    poverty_ages_5_17,
+    .direction = "down"
+  ) %>% 
+  ungroup() %>% 
+  group_by(
+    year
+  ) %>% 
+  mutate(
+    year_fe = as.factor(cur_group_id())
+  )  %>% 
+  ungroup() %>% 
+   group_by(
+    month
+  ) %>%
+  mutate(
+    month_fe = as.factor(cur_group_id())
+  ) %>% 
+  ungroup() %>% 
+  group_by(
+    month_fe, year_fe
+  ) %>% 
+  mutate(
+    date_fe = as.factor(cur_group_id())
+  ) %>% 
+  ungroup() %>% 
+  mutate(
+    ban = 
+      case_when(
+        year >= 2022 & month >= 6 ~ 1,
+        TRUE ~ 0
+      ),
+    ban = 
+      factor(
+        ban,
+        levels = 0:1,
+        labels = c("No ban", "Ban")
+      )
+  ) 
+```
+
+# Regressions
+
+```{r, results = "asis"}
+model1 <-
+  felm(
+    pct_child ~ ban | year_fe + month_fe,
+    data = childcare_df
+  ) 
+
+model2 <-
+  felm(
+    pct_child ~ ban + pct_preg | year_fe,
+    data = childcare_df
+  ) 
+
+model3 <-
+  felm(
+    pct_child ~ ban + pct_preg | year_fe + month_fe,
+    data = childcare_df
+  ) 
+
+model4 <-
+  felm(
+    pct_child ~ ban + pct_preg + poverty_under_age_18 | month_fe,
+    data = childcare_df
+  ) 
+
+stargazer(
+  list(
+    model1,
+    model2,
+    model3,
+    model4
+  ),
+  type = "html",
+  covariate.labels = 
+    c("Abortion ban inforced",
+      "Percentage of pregnant women",
+      "Percentage of children in poverty"),
+  dep.var.labels = "Percentage of children recieving childcare subsidies",
+  column.labels = 
+    c("Year + Month FE",
+      "Year FE",
+      "Year + Month FE",
+      "Month FE"
+    ),
+  style = "aer"
+)
+```
+
+# Descriptive statistics
+
+
+## Plot trend in 2022 for the number of active cases
+
+```{r}
+childcare %>%
+  filter(year >= 2019) %>% 
+  ggplot() +
+  geom_point(
+    aes(
+      x = date,
+      y = childcare_sub
+    ) 
+  ) + 
+  theme_bw() +
+  geom_vline(
+    xintercept = "2022-06"
+  ) 
+```
+
 
 ## Scatter plot with `pct_child`
 
@@ -357,21 +490,3 @@ childcare_df %>%
     labels = scales::percent
     )
 ```
-
-## Regression with time fixed effects
-
-```{r}
-model3 <-
-  felm(
-    pct_child ~ ban + pct_preg | date_fe,
-    data = childcare_df
-  )
-
-stargazer(
-  model3,
-  type = "text"
-)
-```
-
-Negative effect on the share of children recieving subsidised child care, controlling for the percentage of pregnant women in the population.
-
