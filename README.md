@@ -1,6 +1,6 @@
 # Child Care Spending, Parentification and Poverty 
 
-This repository includes code used to understand the relationship between poverty, child care spending, and parentification across the United States.
+This repository includes code used to understand the explore between poverty, child care spending, abortion regulation, and parentification across the United States.
 
 All data used in this repository is stored in a [Box Folder](https://uchicago.box.com/s/rz7ws0e14e9d515tdud1qv89mutaqqbq).
 
@@ -15,6 +15,8 @@ All data used in this repository is stored in a [Box Folder](https://uchicago.bo
 ## Comments for replicators
 
 ## Computational requirements
+
+All code can be ran on R (using RStudio)
 
 ## Description of programs/code
 
