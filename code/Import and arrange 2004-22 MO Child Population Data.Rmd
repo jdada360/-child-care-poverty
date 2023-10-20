@@ -78,12 +78,6 @@ saveRDS(
 )
 ```
 
-## Glimpse at data
-
-```{r}
-
-
-```
 
 # Clean data
 

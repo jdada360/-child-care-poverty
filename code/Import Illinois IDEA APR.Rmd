@@ -40,15 +40,17 @@ lapply(
   1:9,
   function(i){
     
-    dta <-
+    for (j in 2014:2017){
+      
+      dta <-
       read_excel(
         here(
           path_box,
           "Data",
           "raw-deidentified",
           "Illinois IDEA",
-          "2016",
-          paste0("APR 2016 ", i, ".xlsx")
+          j,
+          paste0("APR ", j, " ", i, ".xlsx")
         )
       )
     
@@ -59,10 +61,13 @@ lapply(
           "Data",
           "raw-deidentified",
           "Illinois IDEA",
-          "2016",
-          paste0("APR 2016 ", i, ".rds")
+          j,
+          paste0("APR ", j, " ", i, ".rds")
         )
     )
+    
+      
+    }
     
   }
 )
