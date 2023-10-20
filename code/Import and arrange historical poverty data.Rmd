@@ -128,22 +128,9 @@ poverty_04 <-
 ```
 
 
-### Select state level variables
-
-```{r}
-poverty_04 <-
-  poverty_04 %>%
-  filter(
-    county_fips == 0
-  ) %>% 
-  dplyr::select(
-    -county_fips
-  )
-```
-
 ### Convert to numeric
 
-```{r}
+```{r, warning = FALSE}
 poverty_04 <-
   poverty_04 %>%
   mutate(
@@ -202,27 +189,16 @@ poverty_0512 <-
   )
 ```
 
-### Select state level variables
-
-```{r}
-poverty_0512 <-
-  poverty_0512 %>% 
-  filter(
-    county_fips == 0
-  ) %>% 
-  dplyr::select(
-    -county_fips
-  )
-```
-
 ### Convert to numeric
 
-```{r}
+```{r, warning = FALSE}
 poverty_0512 <-
   poverty_0512 %>% 
   mutate(
     across(
-      starts_with("poverty_"),
+      starts_with(
+        c("poverty_", "county_fips")
+        ),
       as.numeric
     )
   ) 
@@ -259,6 +235,7 @@ poverty_1321 <-
 In the previous years of data the following variables mirror:
 - `poverty_percent_under_age_18` ~ `poverty_percent_age_0_17`
 - `poverty_percent_ages_5_17` ~ `poverty_percent_ages_5_17_in_families`
+- `county_fips` ~  `county_fips_code`
 
 We rename them for consistency and ease of merging.
 
@@ -283,13 +260,15 @@ poverty_1321 <-
       "x13",
       "postal_code",
       "poverty_age_0_17",
-      "poverty_age_5_17_in_families"
+      "poverty_age_5_17_in_families",
+      "county_fips_code"
     ),
     new = c(
       "year",
       "postal",
       "poverty_under_age_18",
-      "poverty_ages_5_17"
+      "poverty_ages_5_17",
+      "county_fips"
     )
   )
 ```
@@ -311,19 +290,6 @@ poverty_1321 <-
   ) 
 ```
 
-
-### Select state level variables
-
-```{r}
-poverty_1321 <-
-  poverty_1321 %>%  
-  filter(
-    county_fips_code == 0
-  ) %>% 
-  dplyr::select(
-    -county_fips_code
-  )
-```
 
 ## Merge yearly data
 
@@ -387,7 +353,7 @@ saveRDS(
     path_box,
     "Data",
     "constructed",
-    "SAIPE Poverty Estimates 2004-2021"
+    "SAIPE Poverty County Estimates 2004-2021"
   )
 )
 ```

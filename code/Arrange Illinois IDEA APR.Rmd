@@ -1,7 +1,6 @@
 ---
 title: "Arrange Illinois IDEA APR"
 author: "Joy Dada"
-author: "Joy Dada"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: rmdformats::robobook
 ---
@@ -54,7 +53,7 @@ pacman::p_load(
 
 # Import data
 
-## 2016
+## 2014-2017
 
 ```{r}
 raw_list <-
@@ -247,7 +246,5 @@ saveRDS(
   )
 )
 ```
-
-
 
 
