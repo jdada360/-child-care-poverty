@@ -1,0 +1,292 @@
+---
+title: "Geocode Illinois CFCs"
+author: "Joy Dada"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: rmdformats::robobook
+---
+
+# Introduction
+
+This script geocodes the locations of Illinois 25 CFCs.
+
+```{r setup, include = FALSE, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+path_box <- 
+  file.path(
+    Sys.getenv("BOX"),
+    "Child Care and Poverty"
+  )
+
+require("pacman")
+
+packages <-
+  c("tidyverse",
+    "leaflet",
+    "janitor",
+    "readxl",
+    "tidyr",
+    "kableExtra",
+    "tidygeocoder",
+    "sf",
+    "here",
+    "ggmap",
+    "map",
+    "mapdata",
+    "ggplot2"
+    # "openxlsx",
+    # "remotes",
+    # "expss",
+    # "statar",
+    # "dataReporter",
+    # "here",
+    # "ggeasy",
+    # "extrafont",
+    # "sjlabelled",
+    # "wesanderson",
+    # "kableExtra",
+    # "epiDisplay",
+    # "lfe",
+    # "stargazer"
+  )
+
+pacman::p_load(
+  packages,
+  character.only = TRUE
+)
+```
+
+
+# Import data
+
+We will start of using a spreadsheet including all CFCs, and their addresses.
+
+```{r}
+raw_cfc <-
+  readRDS(
+    here(
+        path_box,
+        "Data",
+        "constructed",
+        "CFC Address Master.rds"
+      )
+  )
+```
+
+# Geocode addresses
+
+We use the package `tidygeocoder` to geocode the addresses. We use [OpenStreetMap data](https://nominatim.org/) to geocode, through choosing the `osm` method. This process will take roughly 30 seconds.
+
+```{r, message = FALSE}
+coord <-
+  raw_cfc %>% 
+  mutate(
+    address =
+      paste0(
+        street_address, 
+        ", Illinois"
+      )
+  ) %>% 
+  tidygeocoder::geocode(
+    address = street_address,
+    method = 'osm',
+    lat = latitude ,
+    long = longitude
+  )
+```
+
+For addresses that that were not able to find an address for, we search using their postal code. This will take roughly 20 seconds.
+
+```{r, message = FALSE}
+missing_coord <-
+  coord %>% 
+  filter(
+    is.na(latitude)
+  ) %>% 
+  select(-starts_with("l")) %>% 
+  mutate(
+    postal_code = substr(postal_code, 1, 8),
+    postal_code =
+      gsub("IL", "Illinois", postal_code),
+    address = 
+      paste(
+        street_address, postal_code
+      )
+  ) %>% 
+  tidygeocoder::geocode(
+    address = postal_code,
+    method = 'osm',
+    lat = latitude ,
+    long = longitude
+    )
+```
+
+Resolve issue of duplicate coordinates i.e. multiple CFCs having the same coordinate.
+
+We create an indicator column `type` to tell us if we found the coordinate through the street address or through its postcode. We combine all coordinates into 1 data frame.
+
+```{r}
+all_coord <-
+  missing_coord %>% 
+  mutate(
+    type = "postal"
+  ) %>% 
+  bind_rows(
+    filter(
+      coord,
+      !is.na(latitude)
+    )
+  ) %>% 
+  mutate(
+    type = 
+      ifelse(
+        is.na(type),
+        "street",
+        type
+      ),
+    across(
+      starts_with("l"),
+      as.numeric
+    )
+  )
+
+
+all_coord %>% 
+  tabyl(type)
+```
+
+## Convert to sf object
+
+We convert the coordinates to coordinates in a sf object.
+
+```{r}
+gps <-
+  all_coord %>% 
+  st_as_sf(
+    coords = c("longitude", "latitude"),
+    crs = 4326
+  )
+```
+
+
+# Export data
+
+```{r}
+saveRDS(
+  gps,
+  here(
+    path_box,
+    "Data",
+    "tidy",
+    "IL_CFC_coord.rds"
+  )
+)
+```
+
+# Map of CFCs
+
+```{r}
+map_df <-
+  gps %>% 
+  mutate(
+    info = paste(
+      "Location name", name, "<br>",
+      "CFC #", cfc, "<br>"
+    ),
+    cfc = factor(cfc)
+  )
+
+cols <-
+  rainbow(
+    length(
+      levels(
+        map_df$cfc
+      )
+    ),
+    alpha = NULL
+  )
+  
+map_df$colors <-
+  cols[unclass(map_df$cfc)]
+  
+il_base <-
+  map_data("state") %>% 
+  filter(
+    region == "illinois"
+  )
+
+il_county <-
+  map_data("county") %>%  
+  filter(
+    region == "illinois"
+  )
+
+  ggplot(
+    data = all_coord,
+    aes(
+      x = longitude,
+      y = latitude,
+      # color = factor(cfc),
+      label = cfc
+      ), 
+     inherit.aes = FALSE,
+  ) +
+  geom_point(
+    size = 10,
+    fill = "white",
+    color = "white"
+  ) +
+  geom_text(
+    vjust = 0.4,
+    color = "black"
+  ) +
+  coord_fixed(1.3) +
+  guides(
+    color = "none",
+    size = "none"
+    ) +
+  coord_fixed(1.3) + 
+  geom_polygon(
+  data = il_base,
+  aes(x = long, y = lat, group = group),
+  color = "black", fill = NA) + 
+  theme_bw() +
+  coord_fixed(1.3) + 
+  geom_polygon(
+    data = il_county,
+    fill = NA, 
+    color = "black"
+    ) +
+  geom_polygon(
+    color = "black",
+    fill = NA
+    ) 
+  
+  
+  
+  scale_color_manual(
+    tile = "Child and Family Connection Centers"
+  )
+  
+  
+
+
+leaflet() %>%
+  addProviderTiles(
+    'Esri.WorldImagery',
+    options = providerTileOptions(opacity = .9)
+  ) %>%
+  addCircleMarkers(
+    data = map_df,
+    label = lapply(map_df$info, htmltools::HTML),
+    radius = 5,
+    color = ~ colors,
+    opacity = .9
+  ) %>% 
+  setView(
+    lng = -89,
+    lat = 40,
+    zoom = 5
+    ) 
+```
+

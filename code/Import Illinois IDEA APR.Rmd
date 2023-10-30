@@ -73,3 +73,27 @@ lapply(
 )
 ```
 
+
+We also import and export a list of CFCs in Illinois and their addresses.
+
+```{r}
+raw_cfc <-
+  read_excel(
+    here(
+      path_box,
+      "Data",
+      "constructed",
+      "CFC Address Master.xlsx"
+    )
+  ) 
+
+saveRDS(
+  raw_cfc,
+  here(
+      path_box,
+      "Data",
+      "constructed",
+      "CFC Address Master.rds"
+    )
+)
+```
