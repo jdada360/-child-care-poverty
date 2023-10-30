@@ -33,7 +33,8 @@ packages <-
     "ggmap",
     "map",
     "mapdata",
-    "ggplot2"
+    "ggplot2",
+    "googleway"
     # "openxlsx",
     # "remotes",
     # "expss",
@@ -82,9 +83,9 @@ coord <-
   raw_cfc %>% 
   mutate(
     address =
-      paste0(
-        street_address, 
-        ", Illinois"
+      paste(
+        street_address,
+        postal_code
       )
   ) %>% 
   tidygeocoder::geocode(
@@ -93,6 +94,53 @@ coord <-
     lat = latitude ,
     long = longitude
   )
+
+
+api_key <-
+  "AIzaSyDLMb3IZXkLXzvjVDfMhrAw4usUfHQvShc"
+
+geocode_search <- function(list){
+  
+  lapply(seq_along(list), function(i){
+    
+    raw_output <- 
+      google_geocode(
+        address = list[[i]],
+        key = api_key,
+        simplify = TRUE)$results$geometry$location
+    
+    if(is.null(class(raw_output))){
+      
+      print(paste0("No coordinates found for ",  list[[i]]))
+      
+      results <- data.frame(
+        lat = NA_real_,
+        lng = NA_real_,
+        search_name = list[[i]]
+      ) 
+      
+      results
+      
+    }
+    
+    else {
+      
+      print(paste0("Coordinates found for ",  list[[i]]))
+      
+      raw_output$search_name =  list[[i]]
+      
+      
+      raw_output
+    
+    }
+    
+  })
+  
+}
+
+geocode_raw_results <- 
+  geocode_search(unique(coord$street_address))
+
 ```
 
 For addresses that that were not able to find an address for, we search using their postal code. This will take roughly 20 seconds.
@@ -112,7 +160,17 @@ missing_coord <-
       paste(
         street_address, postal_code
       )
-  ) %>% 
+  )
+
+
+```
+
+
+
+
+```{r}
+
+
   tidygeocoder::geocode(
     address = postal_code,
     method = 'osm',
