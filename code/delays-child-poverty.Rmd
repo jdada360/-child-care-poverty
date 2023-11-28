@@ -1,0 +1,293 @@
+---
+title: "Explore relationship between delays and child poverty rates"
+author: "Joy Dada"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: rmdformats::robobook
+---
+
+# Introduction
+
+This script performs regressions exploring the relationship between delays to EI services and child poverty rates. This analysis implies no relationship between child poverty rates and delays. Next to explore is the relationship between delays and successful EI; and between county crime rates and delays. Will also add in earlier data to test.
+
+```{r setup, include = FALSE, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+path_box <- 
+  file.path(
+    Sys.getenv("BOX"),
+    "Child Care and Poverty"
+  )
+
+require("pacman")
+
+packages <-
+  c("tidyverse",
+    "ggplot2",
+    "readxl",
+    "haven",
+    "tidyr",
+    "openxlsx",
+    "remotes",
+    "janitor",
+    "USpopcenters",
+    "tigris",
+    "expss",
+    "dplyr",
+    "statar",
+    "leaflet",
+    "dataReporter",
+    "here",
+    "ggeasy",
+    "extrafont",
+    "sjlabelled",
+    "wesanderson",
+    "kableExtra",
+    "epiDisplay",
+    "lfe",
+    "stargazer",
+    "sf",
+    "bife"
+  )
+
+pacman::p_load(
+  packages,
+  character.only = TRUE
+)
+```
+
+
+# Import data
+
+```{r}
+raw_delay <-
+  readRDS(
+     here(
+      path_box,
+      "Data",
+      "constructed",
+      "Delays and Poverty (2014-2017).rds"
+    )
+  )
+```
+
+
+# Arrange data
+
+First we compute the number of delays in each CFC.
+
+```{r}
+delay_df <-
+  raw_delay %>%
+  mutate(
+    delays = active_ifsp - no_delays
+  )
+  
+tab1(delay_df$delays)
+```
+We also produce quintiles of poverty index, by taking the average of the index across all counties served by a CFC and then computing quintiles.
+
+```{r}
+delay_df <-
+  delay_df %>%  
+  group_by(cfc, year) %>% 
+  mutate(
+    av_pov = mean(poverty_under_age_18)
+  ) %>% 
+  ungroup() %>% 
+  # group_by(year) %>% 
+  mutate(
+    pov_quant = xtile(av_pov, 5, wt = active_ifsp), # needs to be weighted by number of children 
+    pov_quant =
+      factor(
+        pov_quant,
+        levels = 1:5,
+        labels = 
+          c("Q1: Relatively rich",
+            "Q2",
+            "Q3",
+            "Q4", 
+            "Q5: Relatively poor"
+          )
+      )
+  ) %>% 
+  # ungroup() %>% 
+  distinct(cfc, year, .keep_all = TRUE)
+
+tab1(delay_df$pov_quant)
+```
+
+
+# Create synthetic individual level data 
+
+Since we will be performing a logistic regression, we want to produce individual level data.
+
+First we create a function that generates X number of observations per CFC, corresponding to the number of active IFSPs, with X of them having delays.
+
+```{r}
+create_individuals <-
+  function(df){
+    N <- unlist(df[, "active_ifsp"])
+    N_delay <-  unlist(df[, "delays"])
+    
+    individual <-
+      data.frame(
+        studentid = 1:N,
+        delay = 
+          c(
+            rep(TRUE, N_delay),
+            rep(FALSE, N-N_delay)
+          ),
+        year = 
+          rep(
+            unlist(df[, "year"]),
+            N
+          ),
+        cfc =
+          rep(
+            unlist(df[, "cfc"]),
+            N
+          )
+      )
+    
+    return(individual)
+    
+  }
+
+
+individual_delays <-
+  lapply(
+    1:nrow(delay_df),
+    function(i){
+      create_individuals(
+        delay_df[i, ]
+      )
+    }
+  ) %>% 
+  reduce(bind_rows)
+```
+
+We create unique ids for each child and then merge back with our yearly data on poverty rates.
+
+```{r}
+merged_df <-
+  individual_delays %>% 
+  dplyr::select(
+    -"studentid"
+  ) %>% 
+  inner_join(
+    dplyr::select(
+      delay_df,
+      c(
+        "cfc",
+        "year",
+        "pov_quant",
+        "av_pov"
+        )
+      ),
+      by = c("cfc", "year")
+  ) %>% 
+  mutate(
+    across(
+      c("year", "cfc"),
+      as.factor
+    )
+  ) %>% 
+  mutate(
+    studentid = row_number()
+  ) 
+```
+# Specification
+
+For the logistic regression, we use the following specification:
+
+$$Delay_{\text{i}, year} = \beta_{0} + \beta_{1}Poverty_{\text{cfc}, year} + \tau_{year} + \epsilon_{cfc} $$
+So that we have yearly fixed effects, and clustered standard errors at the CFC level.
+This implies an inverse relationship between average poverty rates and delays. 
+Children receiving early intervention in areas with low poverty rates experience less delays in EI 
+
+
+```{r}
+log_model <-
+  glm(
+    delay ~ pov_quant,
+    data = merged_df,
+    family = "binomial"
+  )
+
+stargazer(
+  log_model,
+  type = "text",
+  style = "aer"
+)
+```
+We compare this AIC  a model of CFCs.
+
+AIC: 1,453,675
+```{r}
+cfc_model <-
+  glm(
+    delay ~ cfc,
+    data = merged_df,
+    family = "binomial"
+  )
+
+stargazer(
+  cfc_model,
+  type = "text",
+  style = "aer"
+)
+```
+
+
+We try a few linear models.
+
+```{r}
+tab1(merged_df$delay)
+
+model <-
+  felm(
+    delay ~ pov_quant | year,
+    data = merged_df
+  )
+
+stargazer(
+  model,
+  type = "text",
+  style = "aer"
+)
+```
+
+```{r}
+model2 <-
+  felm(
+    delays ~ pov_quant | year,
+    data = delay_df
+  )
+
+stargazer(
+  model2,
+  type = "text",
+  style = "aer"
+)
+```
+
+
+$$Delay_{\text{cfc}, t} = \beta_{0} + \beta_{1}Poverty_{\text{county},t} + \chi_{cfc} + \tau_{t} + \epsilon_{t} $$
+
+
+Where $\chi_{cfc}$ are CFC fixed effects, $\tau_{t}$ are yearly fixed effects.
+
+
+```{r, warning = FALSE, message = FALSE}
+mod1 <-
+  felm(
+    pct_no_delays ~ factor(pov_quant) | cfc + year, 
+    data = delay_df
+  )
+
+stargazer(
+  mod1,
+  type = "text",
+  style = "aer"
+)
+```

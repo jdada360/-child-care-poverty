@@ -1,0 +1,474 @@
+---
+title: "Import and arrange historical poverty data"
+author: "Joy Dada"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: rmdformats::robobook
+---
+
+# Introduction
+
+This script imports and arrange historical poverty data from the [US Census Bureau](https://www.census.gov/library/publications/2023/demo/p60-280.html#:~:text=The%20SPM%20rate%20in%202022,and%20Table%20B%2D3).
+
+```{r setup, include = FALSE, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Change to Box folder on your computer
+
+path_box <- 
+  file.path(
+    Sys.getenv("BOX"),
+    "Child Care and Poverty"
+  )
+
+# Load necessary packages
+
+require("pacman")
+
+packages <-
+  c("tidyverse",
+    "ggplot2",
+    "readxl",
+    "haven",
+    "tidyr",
+    "openxlsx",
+    "remotes",
+    "janitor",
+    "expss",
+    "dplyr",
+    "statar",
+    "dataReporter",
+    "here",
+    "ggeasy",
+    "extrafont",
+    "sjlabelled",
+    "wesanderson",
+    "kableExtra",
+    "epiDisplay",
+    "lfe",
+    "stargazer"
+  )
+
+pacman::p_load(
+  packages,
+  character.only = TRUE
+)
+```
+
+
+# Import poverty data
+
+```{r, warning = FALSE, message = FALSE}
+poverty_list <-
+    lapply(
+    4:21,
+    function(year){
+      
+      read_excel(
+            here(
+              path_box,
+              "Data",
+              "raw-deidentified",
+              "State and County Poverty Estimates",
+              paste0("est", year, "all.xls")
+          ),
+          skip = 1
+        ) %>% 
+        mutate(
+          year = year
+        )
+    }
+    )
+```
+
+## Glimpse at data
+
+
+```{r}
+head(poverty_list[[1]], 5) %>% 
+  kable(
+    .,
+    format = "html",
+    caption = "Raw US Census Bureau Poverty Data",
+    align = "c"
+  ) %>% 
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+
+
+# Clean data
+
+Each year has data organised slightly differently so we clean them differently.
+
+## 2004
+
+```{r}
+poverty_04 <-
+  poverty_list[[1]] %>%
+  clean_names() 
+```
+
+### Select variables and rename
+
+```{r}
+poverty_04 <-
+  poverty_04 %>% 
+  dplyr::select(
+    name,
+    county_fips,
+    year,
+    postal,
+    poverty_percent_all_ages,
+    poverty_percent_under_age_18,
+    poverty_percent_ages_5_17
+  ) %>% 
+  rename_with(
+    ~ gsub("_percent", "", .x),
+    starts_with("poverty_")
+  )
+```
+
+
+### Convert to numeric
+
+```{r, warning = FALSE}
+poverty_04 <-
+  poverty_04 %>%
+  mutate(
+    across(
+      starts_with("poverty_"),
+      as.numeric
+    )
+  ) 
+```
+
+## 2005-2012
+
+These years have the same structure so we clean these at the same time.
+
+First we bind the rows.
+
+```{r}
+poverty_0512 <-
+  reduce(
+   poverty_list[2:9],
+   bind_rows
+  )
+```
+
+### Convert 1st row to column names 
+
+```{r, warning = FALSE}
+poverty_0512 <-
+  poverty_0512 %>% 
+  row_to_names(
+    row_number = 1
+  ) %>% 
+  clean_names()
+```
+
+### Select variables and rename
+
+```{r}
+poverty_0512 <-
+  poverty_0512 %>% 
+  dplyr::select(
+    name,
+    county_fips,
+    x5,
+    postal,
+    poverty_percent_all_ages,
+    poverty_percent_under_age_18,
+    poverty_percent_ages_5_17
+  ) %>% 
+  rename_with(
+    ~ gsub("_percent", "", .x),
+    starts_with("poverty_")
+  ) %>% 
+  rename(
+    year = x5
+  )
+```
+
+### Convert to numeric
+
+```{r, warning = FALSE}
+poverty_0512 <-
+  poverty_0512 %>% 
+  mutate(
+    across(
+      starts_with(
+        c("poverty_", "county_fips")
+        ),
+      as.numeric
+    )
+  ) 
+```
+
+## 2013-2021
+
+These years have the same structure so we clean these at the same time.
+
+First we bind the rows.
+
+```{r}
+poverty_1321 <-
+  reduce(
+   poverty_list[10:18],
+   bind_rows
+  )
+```
+
+
+### Convert 2nd row to column names 
+
+```{r, warning = FALSE}
+poverty_1321 <-
+  poverty_1321 %>% 
+  row_to_names(
+    row_number = 2
+  ) %>% 
+  clean_names()
+```
+
+### Select variables and rename
+
+In the previous years of data the following variables mirror:
+- `poverty_percent_under_age_18` ~ `poverty_percent_age_0_17`
+- `poverty_percent_ages_5_17` ~ `poverty_percent_ages_5_17_in_families`
+- `county_fips` ~  `county_fips_code`
+
+We rename them for consistency and ease of merging.
+
+```{r}
+poverty_1321 <-
+  poverty_1321 %>%  
+  dplyr::select(
+    name,
+    county_fips_code,
+    x13,
+    postal_code,
+    poverty_percent_all_ages,
+    poverty_percent_age_0_17,
+    poverty_percent_age_5_17_in_families
+  ) %>% 
+  rename_with(
+    ~ gsub("_percent", "", .x),
+    starts_with("poverty_")
+  ) %>% 
+  setnames(
+    old = c(
+      "x13",
+      "postal_code",
+      "poverty_age_0_17",
+      "poverty_age_5_17_in_families",
+      "county_fips_code"
+    ),
+    new = c(
+      "year",
+      "postal",
+      "poverty_under_age_18",
+      "poverty_ages_5_17",
+      "county_fips"
+    )
+  )
+```
+
+### Convert to numeric
+
+```{r, warning = FALSE}
+poverty_1321 <-
+  poverty_1321 %>%  
+  mutate(
+    across(
+      starts_with(
+        c("poverty_",
+          "county_"
+          )
+        ),
+      as.numeric
+    )
+  ) 
+```
+
+
+## Merge yearly data
+
+```{r}
+poverty_raw <-
+  reduce(
+    list(
+      poverty_04,
+      poverty_0512,
+      poverty_1321
+    ),
+    bind_rows
+  )
+```
+
+## Fix year indicator after merge
+
+```{r}
+poverty <-
+  poverty_raw %>%
+  rename(
+    year_ = year
+  ) %>% 
+  mutate(
+    date = 
+      case_when(
+        str_length(
+          as.character(year_)
+          ) == 1 ~ paste0("200", year_,"-01-01"),
+        str_length(
+          as.character(year_)
+          ) == 2 ~ paste0("20", year_, "-01-01")
+      ),
+    date = as.Date(date),
+    year = as.numeric(substr(date, 1, 4))
+  )  %>% 
+  dplyr::select(-year_) 
+
+tab1(poverty$year)
+```
+
+## Convert percentages to decimals
+
+```{r}
+poverty_clean <-
+  poverty %>% 
+  mutate(
+    across(
+      starts_with("poverty_"),
+      ~ .x/100
+    )
+  )
+```
+
+## Export 
+
+```{r}
+saveRDS(
+  poverty_clean,
+  here(
+    path_box,
+    "Data",
+    "constructed",
+    "SAIPE Poverty County Estimates 2004-2021"
+  )
+)
+```
+
+# Descriptive statistics
+
+Focus on Missouri poverty trends overtime.
+
+## Prepare data
+
+Pivot longer so we can plot all variables in the same plot.
+
+```{r}
+poverty_df <-
+  poverty %>% 
+  pivot_longer(
+    cols = 3:5,
+    names_to = "group",
+    values_to = "pct_poverty"
+  )  %>% 
+  mutate(
+    group = 
+      factor(
+        group,
+        levels = 
+          c(
+            "poverty_all_ages",
+            "poverty_ages_5_17",
+            "poverty_under_age_18"
+            ),
+        labels =
+          c(
+            "All ages",
+            "Ages 5-7",
+            "Under 18"
+          )
+      )
+  )
+```
+
+
+## Plot over time
+
+```{r, fig.align = 'center', fig.height = 4, fig.width = 7}
+cols <- 
+  c(
+    "All ages" = "pink",
+    "Ages 5-7" =  "lightblue", 
+    "Under 18" = "purple3"
+    )
+
+poverty_df %>% 
+  filter(
+    postal == "MO"
+  ) %>% 
+  ggplot(
+    aes(
+      y = pct_poverty,
+      x = year,
+      color = group,
+      group = group
+      )
+  ) +
+  geom_point(
+    size = 2
+  ) +
+  geom_line(
+    linewidth = 1.5
+  ) +
+  theme_bw() +
+  scale_x_date(
+    date_breaks = "1 year",
+    date_labels = "%Y"
+  ) +
+  labs(
+    x = "Year",
+    y = "% living in poverty",
+    title = "Percentage of Missourians living in poverty by group",
+    subtitle = "2004-2021",
+    color = ""
+  ) +
+  theme(
+    plot.title =
+      element_text(
+        hjust = 0.5,
+        size = 12,
+        face = "bold"
+      ),
+    plot.subtitle =
+      element_text(
+        hjust = 0.5,
+        size = 11,
+        face = "italic"
+      ),
+    legend.position =
+      c(.9,.87),
+    legend.background = element_blank(),
+    legend.key = element_blank()
+  ) +
+  scale_color_manual(
+    values = cols
+  ) +
+  scale_y_continuous(
+    limits = c(12, 23),
+    breaks = seq(12, 23, 2)
+  ) 
+
+ggsave(
+  filename =
+    here(
+      path_box,
+      "Output",
+      "Poverty in Missouri 2004-21.jpeg"
+    ),
+  height = 4,
+  width = 7
+)
+```

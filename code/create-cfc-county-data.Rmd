@@ -1,0 +1,253 @@
+---
+title: "Create CFC County Data"
+author: "Joy Dada"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: rmdformats::robobook
+---
+
+# Introduction
+
+This script creates CFC County Data.
+
+```{r setup, include = FALSE, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+path_box <- 
+  file.path(
+    Sys.getenv("BOX"),
+    "Child Care and Poverty"
+  )
+
+require("pacman")
+
+packages <-
+  c("tidyverse",
+    "ggplot2",
+    "readxl",
+    "haven",
+    "tidyr",
+    "openxlsx",
+    "remotes",
+    "janitor",
+    "expss",
+    "dplyr",
+    "statar",
+    "dataReporter",
+    "here",
+    "ggeasy",
+    "extrafont",
+    "sjlabelled",
+    "wesanderson",
+    "kableExtra",
+    "epiDisplay",
+    "lfe",
+    "stargazer"
+  )
+
+pacman::p_load(
+  packages,
+  character.only = TRUE
+)
+```
+
+# Import County List
+
+We are using counties listed in the SAIPE.
+
+```{r}
+poverty <-
+   readRDS(
+     here(
+       path_box,
+       "Data",
+       "constructed",
+       "SAIPE Poverty County Estimates 2004-2021"
+       )
+   ) 
+```
+
+We look at all counties in Illinois.
+
+```{r}
+counties <-
+  poverty %>% 
+  filter(
+    postal == "IL" & county_fips != 0
+  ) %>% 
+  distinct(name) 
+```
+
+There are `r nrow(counties)` counties in Illinois.
+
+# Create data
+
+
+## Create list of what county each CFC serves
+
+Using [this map](https://providerconnections.org/wp-content/uploads/2021/11/CFC-Map.jpg) and [this table][(https://providerconnections.org/wp-content/uploads/2023/06/2023-Child-Family-Connections-Listing-of-Illinois.pdf).
+
+We first make the county names uniform and then match each county to its CFC.
+
+```{r}
+cfc <-
+  counties %>% 
+  mutate(
+    name = trimws(tolower(gsub("County", "", name))),
+    cfc =
+      case_when(
+        name %in% 
+          c("boone",
+            "bureau",
+            "marshall",
+            "putnam", 
+            "ogle",
+            "winnebago")  ~ 1,
+        name == "lake" ~ 2,
+        name %in%
+          c("carroll",
+            "dekalb",
+            "jo daviess",
+            "lee",
+            "stephenson",
+            "whiteside") ~ 3,
+        name %in%
+          c("kane", "kendall") ~ 4,
+        name == "dupage" ~ 5,
+        name == "cook" ~ 6, # 6-12
+        name %in% 
+          c("fulton",
+            "hancock",
+            "henderson",
+            "knox",
+            "mcdonough",
+            "mercer",
+            "rock island",
+            "schuyler",
+            "warren") ~ 13,
+        name %in% 
+          c("henry",
+            "peoria",
+            "stark",
+            "tazewell",
+            "woodford") ~ 14,
+        name %in% 
+          c("grundy",
+            "kankakee",
+            "la salle",
+            "will") ~ 15,
+        name %in% 
+          c("champaign",
+            "ford",
+            "iroquois",
+            "livingston",
+            "mclean",
+            "vermilion") ~ 16,
+        name %in% 
+          c("adams",
+            "brown",
+            "calhoun",
+            "cass",
+            "greene",
+            "jersey",
+            "morgan",
+            "pike",
+            "scott") ~ 17,
+        name %in% 
+          c("logan",
+            "menard",
+            "mason",
+            "sangamon") ~ 18,
+        name %in%
+          c("clark",
+            "coles",
+            "cumberland",
+            "de witt",
+            "douglas",
+            "edgar",
+            "macon",
+            "moultrie",
+            "piatt",
+            "shelby") ~ 19,
+        name %in%
+          c("bond",
+            "christian",
+            "clay",
+            "crawford",
+            "effingham",
+            "fayette",
+            "jasper",
+            "lawrence",
+            "macoupin",
+            "montgomery",
+            "richland") ~ 20,
+        name %in%
+          c("madison",
+            "monroe",
+            "randolph",
+            "st. clair") ~ 21, # flag
+        name %in%
+          c("clinton",
+            "marion",
+            "franklin",
+            "jefferson",
+            "washington",
+            "williamson") ~ 22,
+        name %in% 
+          c("edwards",
+            "gallatin",
+            "hamilton",
+            "saline",
+            "wabash",
+            "wayne",
+            "white") ~ 23,
+        name %in% 
+          c("alexander",
+            "hardin",
+            "jackson",
+            "massac",
+            "perry",
+            "pope",
+            "pulaski",
+            "johnson",
+            "union",
+            "massac") ~ 24,
+        name == "mchenry" ~ 25,
+        TRUE ~ NA_real_
+        )
+      )
+```
+
+## Add other CFCs for Cook County
+
+Since Cook County is served by CFCs 6-12, we must add entries for CFC 7-12.
+
+```{r}
+cfc <-
+  cfc %>% 
+  add_row(
+    name = rep("cook", 6),
+    cfc = 7:12
+  )
+```
+
+### Tabulate CFCs
+
+We do this to check every county has been assigned a CFC.
+
+```{r}
+tab1(cfc$cfc)
+```
+
+# Export data
+
+```{r}
+saveRDS(
+  cfc,
+  here(
+    path_box,
+    "Data",
+    "constructed",
+    "CFC_county_master.rds"
+   )
+)
+```

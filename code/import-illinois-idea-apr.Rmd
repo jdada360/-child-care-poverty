@@ -1,0 +1,99 @@
+---
+title: "Import Illinois IDEA APR"
+author: "Joy Dada"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: rmdformats::robobook
+---
+
+# Introduction
+
+This script imports the Illinois IDEA Annual Peformance Reviews and exports them to rds.
+
+```{r setup, include = FALSE, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+path_box <- 
+  file.path(
+    Sys.getenv("BOX"),
+    "Child Care and Poverty"
+  )
+
+require("pacman")
+
+packages <-
+  c(
+    "readxl",
+    "here"
+  )
+
+pacman::p_load(
+  packages,
+  character.only = TRUE
+)
+```
+
+
+# Import and export data
+
+```{r, warning = FALSE, message = FALSE}
+lapply(
+  1:9,
+  function(i){
+    
+    for (j in 2014:2017){
+      
+      dta <-
+      read_excel(
+        here(
+          path_box,
+          "Data",
+          "raw-deidentified",
+          "Illinois IDEA",
+          j,
+          paste0("APR ", j, " ", i, ".xlsx")
+        )
+      )
+    
+    saveRDS(
+      dta,
+      here(
+          path_box,
+          "Data",
+          "raw-deidentified",
+          "Illinois IDEA",
+          j,
+          paste0("APR ", j, " ", i, ".rds")
+        )
+    )
+    
+      
+    }
+    
+  }
+)
+```
+
+
+We also import and export a list of CFCs in Illinois and their addresses.
+
+```{r}
+raw_cfc <-
+  read_excel(
+    here(
+      path_box,
+      "Data",
+      "constructed",
+      "CFC Address Master.xlsx"
+    )
+  ) 
+
+saveRDS(
+  raw_cfc,
+  here(
+      path_box,
+      "Data",
+      "constructed",
+      "CFC Address Master.rds"
+    )
+)
+```

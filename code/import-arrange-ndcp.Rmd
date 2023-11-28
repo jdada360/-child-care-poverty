@@ -1,0 +1,274 @@
+---
+title: "Import and clean NDCP data"
+author: "Joy Dada"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: rmdformats::robobook
+---
+
+```{r setup, include = FALSE, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Change to Box folder on your computer
+
+box_folder <- 
+  file.path(
+    Sys.getenv("BOX"),
+    "Child Care and Poverty"
+  )
+
+# Load necessary packages
+
+require("pacman")
+
+packages <-
+  c("tidyverse",
+    "ggplot2",
+    "readxl",
+    "haven",
+    "tidyr",
+    "openxlsx",
+    "remotes",
+    "janitor",
+    "expss",
+    "dplyr",
+    "statar",
+    "dataReporter",
+    "here",
+    "ggeasy",
+    "extrafont",
+    "sjlabelled",
+    "wesanderson"
+  )
+
+pacman::p_load(
+  packages,
+  character.only = TRUE
+)
+
+
+```
+
+# Introduction
+
+This script aims to produce descriptive statistics using the National Database of Childcare Prices 2008-2019 [(NDCP)  ](https://www.childandfamilydataarchive.org/cfda/archives/CFDA/studies/38303/versions/V1).
+
+# Data 
+
+Note that each observation in the NDCP is at the `county-year` level. All prices are weekly, full-time median prices charged for a given Center-Based Care based on the results reported in the market rate survey report for the county. Details of each variable are found [here](https://www.dol.gov/sites/dolgov/files/WB/media/NationalDatabaseofChildcarePricesTechnicalGuideFinal.pdf) and are adjusted to 2018 levels.
+
+# Process data
+
+## Import data
+
+```{r}
+load(
+  file.path(
+    box_folder,
+    "Data/raw-deintified",
+    "National Database of Childcare Prices/2008-2018.rda"
+    )
+)
+```
+
+## Selecting variables of interest
+
+This data set has a vast [array of variables](https://www.dol.gov/sites/dolgov/files/WB/media/NationalDatabaseofChildcarePricesTechnicalGuideFinal.pdf), so we subset the columns that we are interested in analyzing.
+
+```{r, warning = FALSE}
+ndcp_clean <-
+  da38303.0001 %>% 
+  tibble() %>% 
+  clean_names() %>% 
+  zap_labels() %>% 
+  dplyr::select(
+    state_name,
+    state_abbreviation,
+    county_name,
+    county_fips_code,
+    studyyear,
+    pr_f,
+    mhi,
+    totalpop,
+    me,
+    fme,
+    mme,
+    contains("race"),
+    hispanic,
+    starts_with(c("h_","mc")),
+    -ends_with("flag")
+    ) 
+```
+
+## Rename `studyyear`
+
+A slight renaming of this column is a matter of preference for later figures.
+
+```{r}
+ndcp_clean <-
+  ndcp_clean %>% 
+  rename("year" = "studyyear")
+```
+## Compute yearly average price 
+
+We use `group_by` to group the data frame by `year` and compute the average median price.
+
+```{r}
+fig1 <-
+  ndcp_clean %>%
+  group_by(year) %>% 
+  summarise_at(
+    c("mcsa",
+      "mcinfant",
+      "mctoddler",
+      "mcpreschool"),
+    ~ mean(.x, na.rm = TRUE)
+  ) %>% 
+  ungroup() 
+```
+
+## Reshape averages from wide to long
+
+In order to plot each variable's yearly average data points as separate into groups, it is easiest for me to reshape the data from the wide to long format.
+
+```{r}
+fig1 <-
+  fig1 %>% 
+  pivot_longer(
+    cols = c("mcsa",
+             "mcinfant",
+             "mctoddler",
+             "mcpreschool"),
+    names_to = "price_type",
+    values_to = "price")
+```
+
+## Define `price_type`
+
+This column consists of the names of the previous columns that were reshaped wider. We expand each abbreviation to make the categories more intelligible in the figure. We also change `price_type` into a categorical variable.
+
+```{r}
+fig1 <-
+  fig1 %>% 
+  mutate(
+    price_type = case_when(
+      price_type == "mcsa" ~ "School Age",
+      price_type == "mcinfant" ~ "Infant",
+      price_type == "mctoddler" ~ "Toddler",
+      price_type == "mcpreschool" ~ "Preschool"),
+    price_type =
+      factor(
+        price_type,
+        levels = 
+        c("Infant",
+          "Toddler",
+          "Preschool",
+          "School Age"))
+    )
+```
+
+## Label data
+
+Prior to plotting the data, we add variable labels to be inherited to the figure.
+
+```{r}
+fig1 <-
+  fig1 %>% 
+  apply_labels(
+    year = "Study Year",
+    price = "Median Price ($)",
+    price_type = "Type of Center-Based \n Child Care")
+```
+
+
+# Median child care price over time (Figure 1)
+
+```{r}
+fig1 <-
+  ndcp_clean %>%
+  group_by(year) %>% 
+  summarise_at(
+    c("mcsa",
+      "mcinfant",
+      "mctoddler",
+      "mcpreschool"),
+    ~ mean(.x, na.rm = TRUE)
+  ) %>% 
+  ungroup() %>% 
+  pivot_longer(
+    cols = c("mcsa",
+             "mcinfant",
+             "mctoddler",
+             "mcpreschool"),
+    names_to = "price_type",
+    values_to = "price") %>% 
+  mutate(
+    price_type = case_when(
+      price_type == "mcsa" ~ "School Age",
+      price_type == "mcinfant" ~ "Infant",
+      price_type == "mctoddler" ~ "Toddler",
+      price_type == "mcpreschool" ~ "Preschool"),
+    price_type =
+      factor(
+        price_type,
+        levels = 
+        c("Infant",
+          "Toddler",
+          "Preschool",
+          "School Age"))
+    ) %>% 
+  apply_labels(
+    year = "Study Year",
+    price = "Median Price ($)",
+    price_type = "Type of Center-Based \n Child Care") %>% 
+  ggplot() +
+  geom_point(aes(x = year,
+                 y = price,
+                 group = price_type,
+                 color = price_type),
+             size = 2) +
+  geom_line(aes(x = year,
+                y = price,
+                group = price_type,
+                color = price_type),
+            linewidth = 1) +
+  theme_bw() +
+  scale_x_continuous(
+    breaks = 2008:2018,
+    limits = c(2008, 2018)
+  ) +
+  easy_labs(title = "US Median Child Care Prices",
+            subtitle = "2008-2018",
+            caption = "Data Source: National Database of Childcare Prices 2008-2019. \nPrices are yearly averages from county-level median price observations.") + 
+  theme(text = element_text(family = "serif", size = 10),
+        plot.title = element_text(size = 12, hjust = 0.5),
+        plot.subtitle = element_text(size = 9 , hjust = 0.5, face = "italic"),
+        plot.caption = element_text(face = "bold", hjust = 0),
+        plot.margin = unit(c(0.75,0.75,0.75,0.75), "cm"),
+        panel.grid.major.x =  element_line(color = "black",
+                                           linewidth = 0.1,
+                                           linetype = "dashed"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.y = element_line(color = "black",
+                                          linewidth = 0.1,
+                                          linetype="dashed"),
+        panel.grid.minor.y =  element_blank(),
+        legend.title = element_text(size = 10, hjust = 0.5),
+        legend.key.width = unit(1,"cm"),
+        legend.text = element_text(size = 10),
+        legend.key.size = unit(0.45, 'cm'),
+        legend.background = element_rect(
+          colour = 'black',
+          fill = NA,
+          linetype = 'solid')
+  ) +
+  scale_y_continuous(limits = c(85, 165),
+                     breaks = seq(85, 165, 10)) +
+  scale_color_manual(values = wes_palette("GrandBudapest2"))
+
+print(fig1)
+```
+
+
+
+
+
